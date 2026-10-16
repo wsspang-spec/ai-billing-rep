@@ -149,6 +149,10 @@ main.still,main.still .item,main.still .panel,main.still .card,main.still .rstep
 .mini li{display:grid;grid-template-columns:22px 1fr auto;gap:10px;font-size:13px;align-items:center;opacity:0;animation:rise .4s ease forwards}
 .mini li b{font-family:var(--mono);color:var(--dim);font-weight:500}.mini li span:last-child{font-family:var(--mono);font-size:11px;color:var(--blue)}
 @media (max-width:900px){.landing{grid-template-columns:1fr}.landing .hero{font-size:30px}}
+#dock{position:fixed;right:18px;bottom:18px;width:min(620px,92vw);z-index:20;background:var(--panel);border:1px solid var(--purple);border-radius:16px;box-shadow:0 0 0 1px rgba(187,154,247,.3),0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(187,154,247,.25);overflow:hidden;animation:rise .4s ease}
+#dock .dh{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+#dock .dh b{color:var(--purple)}#dock .dh .sp2{flex:1}
+#dock iframe{width:100%;height:380px;border:0;display:block;background:#000}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -182,7 +186,8 @@ const now = () => new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'
 const docName = id => { id = String(id||'').replace(/^term-/,''); const m = id.match(/^(contract|amendment|credit-promise)-([a-z])$/);
   if (m) return ({contract:'Contract',amendment:'Amendment','credit-promise':'Credit message'})[m[1]] + ' ' + m[2].toUpperCase();
   const l = id.match(/-L(\d+)$/); return l ? 'Bill line ' + l[1] : 'Bill ' + id; };
-const docHref = (id, q) => `/doc/${encodeURIComponent(id)}${q ? '?q=' + encodeURIComponent(q) : ''}`;
+let CUR_INV = '';
+const docHref = (id, q) => `/doc/${encodeURIComponent(id)}?q=${encodeURIComponent(q || '')}${CUR_INV ? '&inv=' + encodeURIComponent(CUR_INV) : ''}`;
 const vcolor = v => /harbor/i.test(v) ? 'var(--amber)' : 'var(--blue)';
 let me = null, timer = null, localErrors = [], STILL = false;
 
@@ -248,6 +253,17 @@ function engine(st, active) {
 }
 const NEXT = {Received:'claude', Read:'surreal', Recalled:'daytona', Compared:'claude'};
 
+let dockSid = null, dockTick = null;
+function dock(url, sid, until) {
+  if (!url || !sid || !until || until < Date.now() || dockSid === sid) return;
+  dockSid = sid; let el = document.getElementById('dock');
+  if (!el) { el = document.createElement('div'); el.id = 'dock'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="dh"><span class="live"><i style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></i></span><b>Anchor Browser · you have control</b><span class="sp2 note" id="dcount"></span><a href="${esc(url)}" target="_blank">Open ↗</a><button class="btn small" id="ddone">Done</button></div><iframe src="${esc(url)}" title="Anchor cloud browser"></iframe>`;
+  const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
+  el.querySelector('#ddone').onclick = () => close(true);
+  dockTick = setInterval(() => { const left = Math.round((until - Date.now())/1000); if (left <= 0) return close(false); const c = document.getElementById('dcount'); if (c) c.textContent = `click inside to take over · closes in ${left}s`; }, 500);
+}
+
 async function api(path, opts={}) {
   const r = await fetch(path, {credentials:'same-origin', ...opts, headers:{'content-type':'application/json', ...(opts.headers||{})}});
   if (r.status === 401 && path !== '/api/login') { me = null; location.hash = '#/login'; throw new Error('signed out'); }
@@ -302,7 +318,7 @@ async function upload(file) {
 }
 
 async function viewInbox(still=false) {
-  STILL = still;
+  STILL = still; CUR_INV = '';
   const [d, f, st] = await Promise.all([api('/api/invoices'), api('/api/cfo'), api('/api/stats')]);
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
@@ -356,6 +372,7 @@ async function viewInbox(still=false) {
   drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
+  if (d.pull?.status === 'done') dock(d.pull.live_view_url, d.pull.session_id, d.pull.hold_until);
   countUp();
   if (pulling) { const watch = async () => {   // don't redraw the page while the live browser is on screen
        if (location.hash && location.hash !== '#/inbox') return;
@@ -435,7 +452,7 @@ function priceTimeline(i) {
 }
 
 async function viewInvoice(key, still=false) {
-  STILL = still;
+  STILL = still; CUR_INV = key;
   const i = await api('/api/invoices/' + encodeURIComponent(key));
   const d = i.decision || {}, c = i.checks || {}, a = i.action, p = i.payment, st = story(i);
   const verdict = Object.fromEntries((c.lines||[]).map(l => [l.line_no, l]));
@@ -500,6 +517,7 @@ async function viewInvoice(key, still=false) {
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
      msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
+  if (a?.status === 'Submitted' && a.portal) dock(a.portal.live_view_url, a.portal.session_id, a.portal.hold_until);
   if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key, true), 1200);
 }
 

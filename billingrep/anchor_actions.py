@@ -16,7 +16,43 @@ import httpx
 from billingrep import config  # noqa: F401  (loads .env)
 
 MAX_MINUTES = 5
-IDLE_MINUTES = 1
+IDLE_MINUTES = 2
+HOLD_SECONDS = int(os.environ.get("ANCHOR_HOLD_SECONDS", "60"))  # after the agent is done, a person can take over
+_HOLDS: dict = {}
+
+
+def _end(client, session_id: str | None, hold: bool) -> int | None:
+    """Close the cloud browser now, or keep it HOLD_SECONDS for a person to click around. Returns hold_until (ms)."""
+    if not session_id:
+        return None
+    if hold and HOLD_SECONDS > 0:
+        import threading
+        import time
+
+        timer = threading.Timer(HOLD_SECONDS, release, (session_id,))
+        timer.daemon = True
+        _HOLDS[session_id] = (client, timer)
+        timer.start()
+        return int((time.time() + HOLD_SECONDS) * 1000)
+    try:
+        client.sessions.delete_session(session_id)
+    except Exception:
+        pass
+    return None
+
+
+def release(session_id: str) -> bool:
+    """End a held session (the Done button, or the timer)."""
+    held = _HOLDS.pop(session_id, None)
+    if not held:
+        return False
+    client, timer = held
+    timer.cancel()
+    try:
+        client.sessions.delete_session(session_id)
+    except Exception:
+        pass
+    return True
 
 
 def _scrub(text: str) -> str:
@@ -89,23 +125,22 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
                 case_id = page.locator("#case-id").inner_text(timeout=30_000).strip()
                 page.wait_for_timeout(2500)  # leave the confirmation on screen for a moment
             finally:
-                browser.close()
+                if HOLD_SECONDS <= 0:
+                    browser.close()  # otherwise just disconnect; the cloud browser stays up for a person
 
         if not re.fullmatch(r"DEMO-CASE-\d{3,}", case_id or ""):
             return {"status": "failed", "error": f"unexpected confirmation: {case_id!r}", "session_id": session_id}
         confirmed = _existing_case(portal_url, invoice_number)
         if not confirmed or confirmed.get("case_id") != case_id:
             return {"status": "failed", "error": f"case {case_id} not found via portal API", "session_id": session_id}
+        held = _end(client, session_id, hold=True)
+        session_id = None  # handed to the hold timer
         return {"status": "submitted", "case_id": case_id, "existing": False, "portal_url": portal_url,
-                "session_id": session_id, "live_view_url": live_view_url}
+                "session_id": data.id, "live_view_url": live_view_url, "hold_until": held}
     except Exception as exc:
         return {"status": "failed", "error": _scrub(f"{type(exc).__name__}: {exc}"), "session_id": session_id}
     finally:
-        if session_id:
-            try:
-                client.sessions.delete_session(session_id)
-            except Exception:
-                pass
+        _end(client, session_id, hold=False)
 
 
 def fetch_invoice(portal_url: str, invoice_number: str, out_dir: Path, on_session=None) -> dict:
@@ -163,7 +198,8 @@ def fetch_invoice(portal_url: str, invoice_number: str, out_dir: Path, on_sessio
                     pass
                 page.wait_for_timeout(2500)
             finally:
-                browser.close()
+                if HOLD_SECONDS <= 0:
+                    browser.close()  # otherwise just disconnect; the cloud browser stays up for a person
         import base64
 
         raw = base64.b64decode(b64)
@@ -172,15 +208,13 @@ def fetch_invoice(portal_url: str, invoice_number: str, out_dir: Path, on_sessio
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"{invoice_number}.pdf"
         path.write_bytes(raw)
-        return {"status": "ok", "path": str(path), "bytes": len(raw), "session_id": session_id}
+        held = _end(client, session_id, hold=True)
+        sid, session_id = session_id, None  # handed to the hold timer
+        return {"status": "ok", "path": str(path), "bytes": len(raw), "session_id": sid, "live_view_url": data.live_view_url, "hold_until": held}
     except Exception as exc:
         return {"status": "failed", "error": _scrub(f"{type(exc).__name__}: {exc}"), "session_id": session_id}
     finally:
-        if session_id:
-            try:
-                client.sessions.delete_session(session_id)
-            except Exception:
-                pass
+        _end(client, session_id, hold=False)
 
 
 if __name__ == "__main__":
