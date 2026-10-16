@@ -1,0 +1,14 @@
+Northstar Demo Telecom (synthetic)
+SYNTHETIC DEMO INVOICE
+All data on this invoice is synthetic demo data.
+
+Invoice number: N-OCT-101
+Account: ACCT-101
+Service period: 2026-10-01 to 2026-10-31
+Invoice date: 2026-10-01
+Due date: 2026-10-30
+
+Line | Service | Type | Description | Amount
+1 | SVC-A | recurring | Monthly connectivity service | $525.00
+
+Total due: $525.00
