@@ -44,7 +44,7 @@ h2{margin:0;font-size:15px;font-weight:600}
 .amt{text-align:right;font-variant-numeric:tabular-nums}.amt div:first-child{font-size:15px}.amt div:last-child{font-size:12px;color:var(--muted);font-family:var(--mono)}
 .pill{font-size:12px;padding:4px 10px;border-radius:999px;font-weight:600;white-space:nowrap;border:1px solid transparent}
 .s-Explained{color:var(--green);background:rgba(158,206,106,.1);border-color:rgba(158,206,106,.3)}
-.s-Needs-clarification,.s-Approved{color:var(--amber);background:rgba(224,175,104,.1);border-color:rgba(224,175,104,.35)}
+.s-Needs-clarification,.s-Approved,.s-Held{color:var(--amber);background:rgba(224,175,104,.1);border-color:rgba(224,175,104,.35)}
 .s-Needs-review{color:var(--red);background:rgba(247,118,142,.1);border-color:rgba(247,118,142,.35)}
 .s-Awaiting-vendor-response{color:var(--blue);background:rgba(122,162,247,.1);border-color:rgba(122,162,247,.35)}
 .s-Duplicate,.s-Checking{color:var(--muted);background:var(--panel2);border-color:var(--line)}
@@ -176,9 +176,10 @@ const money = n => (n<0?'-':'') + '$' + Math.abs(+n||0).toLocaleString('en-US',{
 const signed = n => (n>0?'+':'') + money(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cls = s => 's-' + String(s||'').replace(/[^A-Za-z]/g,'-');
-const LABEL = {'Sending':'Sending','Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Approved · send it','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
+const LABEL = {'Sending':'Sending','Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Approved · send it','Held':'On hold','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
 const label = s => LABEL[s] || s;
-const NEEDS = ['Needs clarification','Needs review','Approved'];
+const NEEDS = ['Needs clarification','Needs review','Approved','Held'];
+const SRC = {'carrier portal':'via Harbor portal (Anchor)', 'inbox':'via inbox', 'upload':'uploaded'};
 const vn = v => String(v||'').replace(/\s*\(synthetic\)/ig,'').replace(/\bDemo\s+/,'');
 const fmtDate = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
 const month = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'long'}) : '';
@@ -319,7 +320,7 @@ async function upload(file) {
 
 async function viewInbox(still=false) {
   STILL = still; CUR_INV = '';
-  const [d, f, st] = await Promise.all([api('/api/invoices'), api('/api/cfo'), api('/api/stats')]);
+  const [d, f, st] = await Promise.all([api('/api/invoices' + (window.SHOWALL ? '?all=1' : '')), api('/api/cfo'), api('/api/stats')]);
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
@@ -328,7 +329,7 @@ async function viewInbox(still=false) {
   const errors = [...localErrors, ...d.errors];
   const allClear = inv.length && !needs.length && !busy && !errors.length;
   const row = (i,n) => `<div class="item" style="animation-delay:${n*.05}s"><div class="av" style="background:${vcolor(i.vendor)}">${esc(vn(i.vendor).slice(0,2).toUpperCase())}</div>
-     <div class="who"><b>${esc(vn(i.vendor))} <span class="note" style="font-weight:400">· ${esc(i.invoice_number)}</span></b><div>${i.status==='Checking' ? 'Checking…' : esc(i.why || '')}</div>${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
+     <div class="who"><b>${esc(vn(i.vendor))} <span class="note" style="font-weight:400">· ${esc(i.invoice_number)}</span></b><div>${i.status==='Checking' ? 'Checking…' : esc(i.why || '')}${SRC[i.source] ? ` <span class="note" style="font-family:var(--mono);font-size:11px">· ${SRC[i.source]}</span>` : ''}${i.dismissed ? ' <span class="note">· dismissed</span>' : ''}</div>${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
      <div class="amt"><div>${money(i.total)}</div><div>${i.delta==null?'':signed(i.delta)+' vs last'}</div></div>
      <span class="pill ${cls(i.status)}">${i.status==='Checking'?'<span class="spinner"></span>':''}${esc(label(i.status))}</span>
      <a class="btn ${NEEDS.includes(i.status)?'white':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${NEEDS.includes(i.status)?'Review':'Open'}</a></div>`;
@@ -337,7 +338,7 @@ async function viewInbox(still=false) {
   const rows = active.map(row).join('');
   const HF = window.HF || 'all';
   const hfMatch = i => HF === 'all' || (HF === 'ok' && i.status === 'Explained') || (HF === 'wait' && i.status === 'Awaiting vendor response') || (HF === 'skip' && i.status === 'Duplicate');
-  const handledRows = handled.filter(hfMatch).map((i,n) => row(i,n).replace(/<\/div>$/, i.status === 'Duplicate' ? `<button class="btn small" data-dismiss="${esc(i.key)}" title="Hide it; it stays in the record">Dismiss</button></div>` : '</div>')).join('');
+  const handledRows = handled.filter(hfMatch).map((i,n) => row(i,n).replace(/<\/div>$/, i.status === 'Duplicate' && !i.dismissed ? `<button class="btn small" data-dismiss="${esc(i.key)}" title="Hide it; it stays in the record">Dismiss</button></div>` : '</div>')).join('');
   const hcount = k => handled.filter(i => k === 'all' || (k === 'ok' && i.status === 'Explained') || (k === 'wait' && i.status === 'Awaiting vendor response') || (k === 'skip' && i.status === 'Duplicate')).length;
   const chipsHF = [['all','All'],['ok','OK to pay'],['wait','Waiting on vendor'],['skip','Skipped']].filter(([k]) => k === 'all' || hcount(k))
      .map(([k,t]) => `<button class="chip" data-hf="${k}" style="${HF===k?'border-color:var(--blue);color:var(--blue)':''}">${t} · ${hcount(k)}</button>`).join('');
@@ -361,7 +362,7 @@ async function viewInbox(still=false) {
     ${errors.map(e => `<div class="alert"><span>${esc(e)}</span><button aria-label="Dismiss">×</button></div>`).join('')}
     <div class="row between" style="margin-top:4px"><span class="lbl" style="color:var(--amber)">Needs you · ${needs.length}</span></div>
     <div class="list">${rows}${reading}${!active.length && !reading ? `<div class="item"><div class="who"><b>${inv.length ? 'Nothing needs you' : 'No bills yet'}</b><div>${inv.length ? 'Every bill below was checked and handled.' : 'Fetch from the inbox, or drop a PDF.'}</div></div></div>`:''}</div></div>
-   ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">${d.dismissed ? d.dismissed + ' dismissed · ' : ''}OK to pay, waiting on vendor, or skipped</span></summary><div class="chips" style="margin-top:10px">${chipsHF}</div><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
+   ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">${d.dismissed ? `<a href="#" id="showall">${window.SHOWALL ? 'Hide' : 'Show'} ${d.dismissed} dismissed</a> · ` : ''}OK to pay, waiting on vendor, or skipped</span></summary><div class="chips" style="margin-top:10px">${chipsHF}</div><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
    ${engine(st, working)}
    <div class="cols"><div>
      <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated · ${money(f.scheduled_payments_simulated)}</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
@@ -370,6 +371,7 @@ async function viewInbox(still=false) {
      <tr><td>Credits that actually showed up on a bill (real savings)</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
+  if ($('#showall')) $('#showall').onclick = e => { e.preventDefault(); window.SHOWALL = !window.SHOWALL; viewInbox(true); };
   document.querySelectorAll('[data-hf]').forEach(b => b.onclick = e => { e.preventDefault(); window.HF = b.dataset.hf; viewInbox(true); });
   document.querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async e => { e.preventDefault(); await api(`/api/invoices/${encodeURIComponent(b.dataset.dismiss)}/dismiss`,{method:'POST'}); viewInbox(true); });
   $('#pull').onclick = async () => { $('#pull').disabled = true; await api('/api/portal/pull',{method:'POST'}); viewInbox(); };
@@ -395,9 +397,12 @@ async function viewInbox(still=false) {
 function story(i) {
   const c = i.checks || {}, bad = (c.lines||[]).filter(l => l.verdict !== 'matches_term');
   const t = (i.terms_used||[])[0];
+  if (i.status === 'Explained' && i.resolution) return { h: 'Resolved by you.', s: i.resolution + '.' };
+  if (i.status === 'Held') return { h: 'Payment on hold.', s: 'You stopped the automatic payment. Release it when you’re ready.' };
   if (i.status === 'Explained') return { h: i.delta ? `${signed(i.delta)}, and it was expected.` : 'Same as last month.', s: t && i.delta ? `The new price started ${fmtDate(t.valid_from)} (${docName(t.source)}). This bill matches it.` : 'Every line matches what you agreed to pay.' };
   if (i.status === 'Needs review') { const l = bad[0]; return { h: 'Billed a price that wasn’t in effect yet.', s: l ? `${money(l.amount)} billed for ${month(i.period_start)}, but the price then was ${money(l.expected)}.` : '' }; }
   if (['Needs clarification','Approved','Awaiting vendor response'].includes(i.status)) { const l = bad[0];
+    if (l && l.verdict === 'differs_from_term') return { h: i.status==='Awaiting vendor response' ? 'Asked the vendor to fix the price.' : 'Asking the vendor to fix the price.', s: `Billed ${money(l.amount)} for ${month(i.period_start)}; the price then was ${money(l.expected)}.` };
     return { h: i.status==='Awaiting vendor response' ? 'Asked the vendor about the new charge.' : `${money(c.unsupported_amount)} that nothing explains.`, s: l ? `“${l.description}” isn’t in your contract.` : '' }; }
   if (i.status === 'Duplicate') return { h: 'You already have this bill.', s: 'Same invoice number. The agent stopped before any payment.' };
   return { h: 'Checking…', s: '' };
@@ -474,8 +479,13 @@ async function viewInvoice(key, still=false) {
   const evidence = [...new Map((d.citations||[]).map(x => [String(x.source).replace(/^term-/,''), x])).values()]
      .map(x => `<a class="chip" href="${docHref(x.source, x.quote)}" target="_blank" title="${esc(x.quote)}">${esc(docName(x.source))} ↗</a>`).join('');
   let act = '';
-  if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">Scheduled automatically, 3 days before it’s due (${fmtDate(p.due_on)}). Simulated: no money moves.</div></div>`;
-  else if (i.status === 'Needs review') act = `<div class="panel"><h2>Held for you</h2><div class="note">No payment, nothing sent.</div></div>`;
+  if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">${i.resolution ? esc(i.resolution) + '. ' : 'Scheduled automatically, 3 days before it’s due (' + fmtDate(p.due_on) + '). '}Simulated: no money moves.</div><div class="row"><button class="btn small" id="hold">Hold payment</button></div></div>`;
+  else if (i.status === 'Needs review') { const agreed = (i.total || 0) - (c.unsupported_amount || 0);
+    act = `<div class="panel glow"><h2>What do you want to do?</h2><div class="note">Billed ${money(i.total)}; the contract price for ${month(i.period_start)} was ${money(agreed)}. Nothing is paid or sent until you choose.</div>
+     <div class="row"><button class="btn primary" data-resolve="pay_agreed">Pay the agreed ${money(agreed)}</button>
+     <button class="btn white" data-resolve="ask_vendor">Ask vendor to fix it</button>
+     <button class="btn" data-resolve="accept">Accept ${money(i.total)} anyway</button></div><div id="actmsg" class="note"></div></div>`; }
+  else if (i.status === 'Held') act = `<div class="panel glow"><h2>Payment on hold</h2><div class="note">${p ? money(p.amount) + ' was due to go out ' + fmtDate(p.scheduled_on) + '.' : ''} Nothing goes out while it’s on hold.</div><div class="row"><button class="btn primary" id="release">Release payment</button></div></div>`;
   else if (i.status === 'Duplicate') act = `<div class="panel"><h2>No second payment</h2><div>Same as <a href="#/invoice/${encodeURIComponent(i.duplicate_of)}">${esc(i.duplicate_of)}</a>.</div></div>`;
   const liveFrame = url => `<iframe src="${esc(url)}" title="Anchor live browser" allow="clipboard-read; clipboard-write"></iframe>`;
   const live = a?.status === 'Sending' ? `<div class="panel glow" style="border-color:var(--purple)"><div class="row between"><div><div class="lbl" style="color:var(--purple)">Anchor Browser · live</div><h2 style="margin-top:4px">Filing the question on Harbor’s portal right now</h2></div>
@@ -496,7 +506,7 @@ async function viewInvoice(key, still=false) {
        <div class="step"><span class="ic" style="color:var(--purple)">${ICON.globe}</span><span class="t">Ask</span><span>On the vendor’s portal. <details><summary style="font-size:13px;color:var(--blue)">Read the message</summary><div class="note" style="margin-top:6px">${esc(a.message)}</div></details></span></div></div>
        <div class="row"><button class="btn primary" id="approve" ${approved?'disabled':''}>${approved?'✓ Approved':'Approve'}</button>
        <button class="btn white" id="send" ${approved?'':'disabled'}>Send to vendor</button>
-       ${approved?'':'<a href="#" id="tryblock" class="note">Try sending without approval</a>'}</div>
+       ${approved?'':'<a href="#" id="tryblock" class="note" title="Calls the server’s send step directly, skipping the button, to prove the server refuses">Test the guardrail: send without approval</a>'}</div>
        ${a.status==='Failed'?`<div class="err">Not sent: ${esc(a.portal?.error||'no confirmation from the portal')}. Try again.</div>`:''}<div id="actmsg" class="note"></div></div>`;
   }
   $('#app').innerHTML = shell('inbox', `
@@ -514,6 +524,9 @@ async function viewInvoice(key, still=false) {
    ${guardrails(i)}`);
   wireShell();
   const msg = t => { const m = $('#actmsg'); if (m) m.innerHTML = t; };
+  document.querySelectorAll('[data-resolve]').forEach(b => b.onclick = async () => { b.disabled = true; await api(`/api/invoices/${encodeURIComponent(key)}/resolve`,{method:'POST',body:JSON.stringify({choice:b.dataset.resolve})}); viewInvoice(key); });
+  if ($('#hold')) $('#hold').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/hold`,{method:'POST'}); viewInvoice(key); };
+  if ($('#release')) $('#release').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/release`,{method:'POST'}); viewInvoice(key); };
   if ($('#approve')) $('#approve').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/approve`,{method:'POST'}); viewInvoice(key); };
   if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Starting Anchor…');
      try { await api(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST'}); } catch (x) { msg('<span class="err">'+esc(x.message)+'</span>'); $('#send').disabled = false; return; }
@@ -528,7 +541,7 @@ async function viewInvoice(key, still=false) {
      timer = setTimeout(watch, 1200); }
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
-     msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
+     msg(r.status===403 ? `<span class="err">■ Refused by the server (403): no approval on record for this inquiry. The AI can suggest; only a person can send.</span><br><span class="note">Checked in code against SurrealDB · logged as a step · traced in Arize.</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
   if (a?.status === 'Submitted' && a.portal) dock(a.portal.live_view_url, a.portal.session_id, a.portal.hold_until);
   if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key, true), 1200);
 }

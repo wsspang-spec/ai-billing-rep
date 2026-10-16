@@ -68,13 +68,17 @@ def _summary(inv: dict) -> dict:
     d = inv.get("decision") or {}
     steps = [e["step"] for e in db.q("SELECT step, at FROM event WHERE invoice = $k ORDER BY at ASC", {"k": inv["key"]})]
     return {k: inv.get(k) for k in ("key", "invoice_number", "account", "vendor", "period_start", "period_end", "total", "delta", "status", "due_date")} | {
-        "summary": d.get("summary"), "steps": steps, "why": _why(inv),
+        "summary": d.get("summary"), "steps": steps, "why": _why(inv), "source": inv.get("source"), "dismissed": bool(inv.get("dismissed")),
         "payment": db.one("SELECT amount, scheduled_on, status FROM payment WHERE invoice = $k", {"k": inv["key"]})}
 
 
 def _why(inv: dict) -> str:
     """One line a rep can act on, shown under the status on the dashboard."""
     st, c = inv.get("status"), inv.get("checks") or {}
+    if inv.get("resolution") and st == "Explained":
+        return inv["resolution"]
+    if st == "Held":
+        return "Payment on hold by you; release it when you're ready"
     open_lines = [l for l in c.get("lines", []) if l.get("verdict") != "matches_term"]
     used = (inv.get("terms_used") or [{}])[0]
     if st == "Explained":
@@ -85,7 +89,10 @@ def _why(inv: dict) -> str:
     if st == "Duplicate":
         return f"Already received as {inv.get('duplicate_of')}; not paid twice"
     if st == "Needs clarification" and open_lines:
-        return f"“{open_lines[0]['description']}” (${open_lines[0]['amount']:,.2f}) isn’t in the contract"
+        l = open_lines[0]
+        if l.get("verdict") == "differs_from_term":
+            return f"Billed ${l['amount']:,.2f}; that period's price was ${(l.get('expected') or 0):,.2f}. Asking the vendor to fix it"
+        return f"“{l['description']}” (${l['amount']:,.2f}) isn’t in the contract"
     if st == "Needs review" and open_lines:
         l = open_lines[0]
         return f"Billed ${l['amount']:,.2f}; the price for that period was ${(l.get('expected') or 0):,.2f}"
@@ -100,9 +107,10 @@ def _why(inv: dict) -> str:
 @app.get("/api/invoices")
 def invoices(request: Request) -> dict:
     _user(request)
-    rows = db.q("SELECT * FROM invoice WHERE run = true AND dismissed != true ORDER BY received_at ASC")
+    show_all = request.query_params.get("all") == "1"
+    rows = db.q("SELECT * FROM invoice WHERE run = true" + ("" if show_all else " AND dismissed != true") + " ORDER BY received_at ASC")
     dismissed = len(db.q("SELECT key FROM invoice WHERE run = true AND dismissed = true"))
-    order = {"Needs clarification": 0, "Needs review": 1, "Approved": 2, "Checking": 3, "Awaiting vendor response": 4, "Explained": 5, "Duplicate": 6}
+    order = {"Needs clarification": 0, "Needs review": 1, "Held": 1, "Approved": 2, "Checking": 3, "Awaiting vendor response": 4, "Explained": 5, "Duplicate": 6}
     rows.sort(key=lambda r: order.get(r["status"], 9))
     pending = sorted(p.name for p in INBOX.glob("*.pdf") if p.name not in PORTAL_ONLY and not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name}))
     portal_waiting = sorted(n for n in PORTAL_ONLY if not db.one("SELECT key FROM invoice WHERE file_name = $f", {"f": n}))
@@ -212,6 +220,79 @@ def invoice(key: str, request: Request) -> dict:
     if not d:
         raise HTTPException(404, "no such invoice")
     return d
+
+
+@app.post("/api/invoices/{key}/resolve")
+async def resolve(key: str, request: Request) -> dict:
+    """Check price: the rep chooses. Pay the agreed price, ask the vendor to fix it, or accept the billed price."""
+    user = _user(request)
+    choice = (await request.json()).get("choice")
+    inv = db.one("SELECT * FROM invoice WHERE key = $k", {"k": key})
+    if not inv or inv["status"] != "Needs review":
+        raise HTTPException(400, "only a bill marked Check price can be resolved this way")
+    from billingrep.agent import _pay_date
+
+    c = inv.get("checks") or {}
+    held = round(c.get("unsupported_amount", 0), 2)
+    agreed = round(inv["total"] - held, 2)
+    line = next((l for l in c.get("lines", []) if l.get("verdict") != "matches_term"), {})
+
+    def pay(amount: float, note: str) -> None:
+        db.q("CREATE payment CONTENT $p", {"p": {"invoice": key, "amount": amount, "scheduled_on": _pay_date(inv["due_date"]),
+                                                "due_on": inv["due_date"], "status": f"Scheduled (simulated), {note}", "simulated": True}})
+
+    if choice == "pay_agreed":
+        pay(agreed, "agreed price")
+        db.q("UPDATE invoice MERGE $m WHERE key = $k", {"k": key, "m": {"status": "Explained", "resolution": f"You chose to pay the agreed ${agreed:,.2f}, not the billed ${inv['total']:,.2f}"}})
+        db.log_event(key, "Decided by you", f"{user['name']} chose to pay the agreed ${agreed:,.2f}", "you")
+    elif choice == "accept":
+        pay(inv["total"], "accepted as billed")
+        db.q("UPDATE invoice MERGE $m WHERE key = $k", {"k": key, "m": {"status": "Explained", "resolution": f"You accepted the billed ${inv['total']:,.2f}"}})
+        db.log_event(key, "Decided by you", f"{user['name']} accepted ${inv['total']:,.2f} as billed", "you")
+    elif choice == "ask_vendor":
+        month = dt_month(inv["period_start"])
+        msg = (f"Hello, invoice {inv['invoice_number']} for account {inv['account']} bills {line.get('description', 'the service')} at "
+               f"${line.get('amount', inv['total']):,.2f} for {month}. Our contract price for that period is ${(line.get('expected') or agreed):,.2f}; "
+               f"the new price only starts later. Could you correct the invoice or confirm the price for {month}? Thank you.")
+        db.q("DELETE action WHERE invoice = $k", {"k": key})
+        db.q("CREATE action CONTENT $a", {"a": {"key": f"inq-{key}", "invoice": key, "kind": "inquiry", "status": "Proposed",
+                                               "amount": held, "undisputed": agreed, "message": msg}})
+        db.q("UPDATE invoice SET status = 'Needs clarification' WHERE key = $k", {"k": key})
+        db.log_event(key, "Decided by you", f"{user['name']} chose to ask the vendor to fix the ${held:,.2f}", "you")
+    else:
+        raise HTTPException(400, "choose pay_agreed, ask_vendor or accept")
+    return agent.detail(key)
+
+
+def dt_month(d: str) -> str:
+    import datetime as dt
+
+    return dt.date.fromisoformat(d).strftime("%B")
+
+
+@app.post("/api/invoices/{key}/hold")
+def hold_payment(key: str, request: Request) -> dict:
+    """OK to pay is automatic; the rep can still stop it."""
+    user = _user(request)
+    inv = db.one("SELECT status FROM invoice WHERE key = $k", {"k": key})
+    if not inv or inv["status"] != "Explained":
+        raise HTTPException(400, "only an OK-to-pay bill can be held")
+    db.q("UPDATE payment SET status = 'On hold (simulated)' WHERE invoice = $k", {"k": key})
+    db.q("UPDATE invoice SET status = 'Held' WHERE key = $k", {"k": key})
+    db.log_event(key, "Held by you", f"{user['name']} put the payment on hold", "you")
+    return agent.detail(key)
+
+
+@app.post("/api/invoices/{key}/release")
+def release_payment(key: str, request: Request) -> dict:
+    user = _user(request)
+    inv = db.one("SELECT status FROM invoice WHERE key = $k", {"k": key})
+    if not inv or inv["status"] != "Held":
+        raise HTTPException(400, "this bill isn't on hold")
+    db.q("UPDATE payment SET status = 'Scheduled (simulated)' WHERE invoice = $k", {"k": key})
+    db.q("UPDATE invoice SET status = 'Explained' WHERE key = $k", {"k": key})
+    db.log_event(key, "Released by you", f"{user['name']} released the payment", "you")
+    return agent.detail(key)
 
 
 @app.post("/api/invoices/{key}/dismiss")
