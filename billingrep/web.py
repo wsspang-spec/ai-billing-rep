@@ -34,8 +34,8 @@ def _user(request: Request) -> dict:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return (STATIC / "index.html").read_text()
+def index() -> HTMLResponse:
+    return HTMLResponse((STATIC / "index.html").read_text(), headers={"Cache-Control": "no-store"})  # always the latest UI
 
 
 @app.post("/api/login")
@@ -185,6 +185,8 @@ def inquiry(key: str, request: Request):
     if action["status"] == "Submitted":
         return action
     _sending.add(key)
+    # mark it before the job starts, so the page that reloads next already sees "Sending" and streams the live view
+    db.q("UPDATE action MERGE $m WHERE invoice = $k", {"k": key, "m": {"status": "Sending", "live_view_url": None}})
 
     def work() -> None:
         try:
