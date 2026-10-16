@@ -1,0 +1,24 @@
+Northstar Telecom - Business Fiber & Voice
+Remit to: Northstar Telecom, PO Box 4410, Hartford, CT 06101-4410
+
+Bill to: Atlas Retail, Hartford office, Attn: Accounts Payable, 200 Asylum Street, Suite 410, Hartford, CT 06103
+Account number: ACCT-101
+Invoice number: N-SEP-EARLY
+Invoice date: 2026-09-01
+Billing period: 2026-09-01 to 2026-09-30
+Due date: 2026-09-30
+
+ACCOUNT SUMMARY
+Previous balance: $0.00
+Payment received - thank you: $-0.00
+Balance forward: $0.00
+Current charges: $525.00
+TOTAL AMOUNT DUE: $525.00 by 2026-09-30
+
+DETAIL OF CURRENT CHARGES
+Line | Service ID | Type | Description | Amount
+1 | SVC-A | recurring | Monthly connectivity service | $525.00
+Total current charges: $525.00
+Taxes, surcharges and fees: included above
+
+Customer service: 1-800-555-0142 | northstartelecom.example/business

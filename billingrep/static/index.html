@@ -565,7 +565,7 @@ async function viewHow() {
     <details><summary class="note" style="color:var(--blue);margin-top:4px">See all ${(q.cases||[]).length} cases, repeat runs and trace ids ▾</summary>
      <div class="note" style="margin:10px 0 4px">${esc(q.arize?.detail || '')}${q.run_at ? ' · run ' + esc(q.run_at.replace('T',' ')) : ''}. Click a trace id to copy it, then paste it into Arize’s search.</div>
      <div class="lbl" style="margin-top:12px">Repeat runs</div><div>${trialRows}</div>
-     <div class="lbl" style="margin-top:14px">Every case</div><div>${qrows}</div></details></div>`);
+     <div class="lbl" style="margin-top:14px">Every case</div><div style="max-height:340px;overflow-y:auto;padding-right:6px;border-top:1px solid var(--line)">${qrows}</div></details></div>`);
   wireShell();
   const s = $('#how svg');
   const ag = [...s.querySelectorAll('g')].find(g => g.getAttribute('marker-end'));
