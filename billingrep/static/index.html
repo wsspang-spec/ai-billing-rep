@@ -143,6 +143,12 @@ main.still,main.still .item,main.still .panel,main.still .card,main.still .rstep
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.engine{grid-template-columns:repeat(2,1fr)}.pains{grid-template-columns:1fr}}
 .livebox{border-radius:12px;overflow:hidden;border:1px solid var(--purple);box-shadow:0 0 40px rgba(187,154,247,.25);background:#000;min-height:120px;display:flex;align-items:center;justify-content:center}
 .livebox iframe{width:100%;height:480px;border:0;display:block;background:#000}
+.landing{position:relative;display:grid;grid-template-columns:1.25fr .75fr;gap:44px;max-width:1120px;width:100%;align-items:center}
+.landing .hero{font-size:40px;line-height:1.12;letter-spacing:-.025em;margin:8px 0 18px}
+.mini{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.mini li{display:grid;grid-template-columns:22px 1fr auto;gap:10px;font-size:13px;align-items:center;opacity:0;animation:rise .4s ease forwards}
+.mini li b{font-family:var(--mono);color:var(--dim);font-weight:500}.mini li span:last-child{font-family:var(--mono);font-size:11px;color:var(--blue)}
+@media (max-width:900px){.landing{grid-template-columns:1fr}.landing .hero{font-size:30px}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -215,8 +221,7 @@ function countUp() {
 }
 const cu = (k, v, f='') => v == null ? '—' : `<span data-cu="${k}" data-v="${v}" data-f="${f}">${f==='money'?money(v):(f==='s'?(+v).toFixed(1)+' s':v)}</span>`;
 function impact(st) {
-  return `<div class="panel glow"><div style="font-size:15px"><span class="lbl" style="color:var(--red)">The problem</span>&nbsp; Bills arrive all month, from every carrier, at different times. Hard to track → <b style="color:var(--amber)">money leaks out</b>, bills get missed, <b style="color:var(--red)">services get shut off</b>.</div>
-   <div class="row between"><div class="lbl">What the agent took off Maria’s plate this month</div><span class="note">Manual invoice handling: median $6 per invoice (APQC)</span></div>
+  return `<div class="panel glow"><div class="row between"><div class="lbl">What the agent took off Maria’s plate this month</div><span class="note">Manual invoice handling: median $6 per invoice (APQC)</span></div>
    <div class="kpis">
     <div class="kpi"><div class="big" style="color:var(--blue)">${cu('secs', st.secs_per_bill, 's')}</div><div class="what">per bill, every line checked</div><div class="how">instead of reading each one yourself</div></div>
     <div class="kpi"><div class="big" style="color:var(--amber)">${cu('held', st.held, 'money')}</div><div class="what">held before paying</div><div class="how">charges your contract doesn’t explain</div></div>
@@ -237,7 +242,7 @@ function engine(st, active) {
    ${tile('claude','var(--claude)','claude','Claude · AWS Bedrock', sp.claude?.reads ?? 0, 'bills read', `${sp.claude?.decisions ?? 0} decisions made`)}
    ${tile('surreal','var(--surreal)','db','SurrealDB', sp.surreal?.recalls ?? 0, 'prices recalled as of the bill date', 'users · bills · contracts')}
    ${tile('daytona','var(--ink)','box','Daytona', sp.daytona?.checks ?? 0, 'checks run in a sandbox', '+ hosts the vendor portal')}
-   ${tile('anchor','var(--purple)','globe','Anchor Browser', sp.anchor?.filed ?? 0, 'inquiries filed on the portal', 'only after you approve')}
+   ${tile('anchor','var(--purple)','globe','Anchor Browser', (sp.anchor?.filed ?? 0) + (sp.anchor?.pulled ?? 0), 'portal actions', `${sp.anchor?.pulled ?? 0} bill pulled · ${sp.anchor?.filed ?? 0} inquiry filed`)}
    ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `evals: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass`)}
   </div>`;
 }
@@ -262,14 +267,22 @@ function wireShell() {
 }
 
 function viewLogin(err='') {
-  $('#app').innerHTML = `<div class="login"><div class="grid"></div><div class="orb"></div><form id="f">
+  const pains = [['Reading every line of every bill','Claude reads and checks each one'],['A price rise that looks like an error','Checked against the contract in effect that month'],['Chasing vendors on their portals','Anchor pulls bills and files questions for you'],['Paying twice, or late','Duplicates stopped, payments scheduled early']];
+  const how = [['1','Bring in','Anchor · inbox'],['2','Read','Claude on AWS Bedrock'],['3','Remember','SurrealDB'],['4','Check','Daytona'],['5','Decide','Claude on AWS Bedrock'],['6','Act, after you approve','Anchor Browser'],['∞','Watch','Arize AX']];
+  $('#app').innerHTML = `<div class="login"><div class="grid"></div><div class="orb"></div><div class="landing">
+   <div style="animation:rise .6s ease both"><div class="lbl" style="color:var(--red)">The problem</div>
+    <h1 class="hero">Bills arrive all month, from every carrier. <span style="color:var(--amber)">Money leaks out.</span> <span style="color:var(--red)">Services get shut off.</span></h1>
+    <div class="pains" style="grid-template-columns:1fr">${pains.map(x => `<div class="pain"><s>${x[0]}</s><span class="arr">→</span><b>${x[1]}</b></div>`).join('')}</div>
+    <div class="lbl" style="margin-top:22px">How Billing Rep works</div>
+    <ul class="mini">${how.map((x,n) => `<li style="animation-delay:${.4+n*.15}s"><b>${x[0]}</b><span>${x[1]}</span><span>${x[2]}</span></li>`).join('')}</ul></div>
+   <form id="f">
    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><div class="logo" style="width:46px;height:46px;border-radius:13px;font-size:16px;box-shadow:0 0 30px rgba(230,232,238,.25)">BR</div>
    <h1 style="font-size:26px;margin-top:6px">Billing Rep</h1><div class="typed" id="typed"></div></div>
    <label>Email<input name="email" type="email" value="maria@atlas.example" autocomplete="username"></label>
    <label>Password<input name="password" type="password" value="demo-password" autocomplete="current-password"></label>
    ${err?`<div class="err" style="font-size:14px">${esc(err)}</div>`:''}
    <button class="btn white" style="min-height:46px">Sign in</button>
-   <div class="sponsors"><span>Claude · AWS Bedrock</span><span>SurrealDB</span><span>Daytona</span><span>Anchor</span><span>Arize AX</span></div></form></div>`;
+   <div class="sponsors"><span>Claude · AWS Bedrock</span><span>SurrealDB</span><span>Daytona</span><span>Anchor</span><span>Arize AX</span></div></form></div></div>`;
   const text = 'Every bill checked before you pay it.'; let n = 0; const t = $('#typed');
   const tick = () => { if (!t.isConnected) return; t.textContent = text.slice(0, ++n); if (n < text.length) setTimeout(tick, 38); }; tick();
   $('#f').onsubmit = async e => {
@@ -294,6 +307,7 @@ async function viewInbox(still=false) {
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
+  const pulling = d.pull?.status === 'pulling';
   const busy = d.processing.length || inv.some(i => i.status === 'Checking');
   const errors = [...localErrors, ...d.errors];
   const allClear = inv.length && !needs.length && !busy && !errors.length;
@@ -310,15 +324,18 @@ async function viewInbox(still=false) {
   const reading = d.processing.filter(n => !checkingNums.some(x => n.startsWith(x)))
      .map(n => `<div class="item"><div class="av" style="background:var(--panel2);color:var(--muted)">··</div><div class="who"><b>${esc(n)}</b><div>Claude is reading the PDF…</div>${pipe(['Received'], true)}</div></div>`).join('');
   const pays = (f.payments||[]).map(p => `<tr><td><span class="lbl">${fmtDate(p.scheduled_on)}</span> &nbsp;${esc(vn(p.vendor))} · ${esc(p.invoice)}${p.part?' <span class="note">(undisputed part)</span>':''}</td><td>${money(p.amount)}</td></tr>`).join('');
-  const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)} from ${fmtDate(c.effective)} · <a href="${docHref(c.source)}" target="_blank">${docName(c.source)} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
+  const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)} from ${fmtDate(c.effective)} · <a href="${docHref(c.source)}" target="_blank">${esc(docName(c.source))} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
   const working = new Set(); inv.filter(i => i.status === 'Checking').forEach(i => { const last = (i.steps||[]).slice(-1)[0]; if (NEXT[last]) working.add(NEXT[last]); });
-  if (reading) working.add('claude'); if (busy) working.add('arize');
+  if (reading) working.add('claude'); if (busy || pulling) working.add('arize'); if (pulling) working.add('anchor');
   $('#app').innerHTML = shell('inbox', `
-   ${impact(st)}
    <div class="panel glow"><div class="row between"><div><div class="lbl">Atlas Retail · accounts payable</div>
-     <h1 style="margin-top:6px">${allClear?'All caught up.':(needs.length?`${inv.length} bills checked. <span style="color:var(--amber)">${needs.length} need${needs.length>1?'':'s'} you.</span>`:(inv.length?`${inv.length} bill${inv.length>1?'s':''} checked.`:'October bills'))}</h1></div>
+     <h1 style="margin-top:6px">${allClear?'All caught up.':(needs.length?`${inv.length} bill${inv.length>1?'s':''} checked. <span style="color:var(--amber)">${needs.length} need${needs.length>1?'':'s'} you.</span>`:(inv.length?`${inv.length} bill${inv.length>1?'s':''} checked.`:'October bills'))}</h1></div>
      <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf,.pdf" hidden></label>
+     <button class="btn" id="pull" style="border-color:var(--purple);color:var(--purple)" ${(d.portal_waiting||[]).length && d.pull?.status!=='pulling'?'':'disabled'}>Pull from Harbor portal</button>
      <button class="btn primary" id="fetch" ${d.inbox_waiting.length?'':'disabled'}>Fetch from inbox${d.inbox_waiting.length?` (${d.inbox_waiting.length})`:''}</button></div></div>
+    ${pulling ? `<div class="panel" style="border-color:var(--purple);box-shadow:0 0 40px rgba(187,154,247,.18)"><div class="row between"><div><div class="lbl" style="color:var(--purple)">Anchor Browser · live</div><h2 style="margin-top:4px">Signing in to Harbor’s portal and downloading the October bill</h2></div><span class="live"><i style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></i>cloud browser</span></div>
+      <div class="livebox" id="pullbox">${d.pull.live_view_url ? `<iframe src="${esc(d.pull.live_view_url)}" title="Anchor live browser"></iframe>` : '<div class="note"><span class="spinner"></span>Starting a cloud browser…</div>'}</div>
+      <div class="note">No login of Maria’s is shared with the model; the browser runs in Anchor’s cloud.${d.pull.live_view_url ? ` · <a href="${esc(d.pull.live_view_url)}" target="_blank">Open live view ↗</a>` : ''}</div></div>` : ''}
     <div class="drop" id="drop"><span>Drop a PDF invoice here</span><span>No PDF handy? <a href="/samples/next" download>Get a new sample bill</a></span></div>
     ${errors.map(e => `<div class="alert"><span>${esc(e)}</span><button aria-label="Dismiss">×</button></div>`).join('')}
     <div class="row between" style="margin-top:4px"><span class="lbl" style="color:var(--amber)">Needs you · ${needs.length}</span></div>
@@ -332,6 +349,7 @@ async function viewInbox(still=false) {
      <tr><td>Credits actually applied · saved so far</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
+  $('#pull').onclick = async () => { $('#pull').disabled = true; await api('/api/portal/pull',{method:'POST'}); viewInbox(); };
   $('#file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
   document.querySelectorAll('.alert button').forEach(b => b.onclick = async () => { localErrors = []; await fetch('/api/errors/clear',{method:'POST',credentials:'same-origin'}); b.parentElement.remove(); });
   const drop = $('#drop');
@@ -339,7 +357,15 @@ async function viewInbox(still=false) {
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
   countUp();
-  if (busy) timer = setTimeout(() => viewInbox(true), 1200);
+  if (pulling) { const watch = async () => {   // don't redraw the page while the live browser is on screen
+       if (location.hash && location.hash !== '#/inbox') return;
+       const j = await api('/api/invoices').catch(() => null); if (!j) return;
+       const box = $('#pullbox');
+       if (j.pull?.live_view_url && box && !box.querySelector('iframe')) box.innerHTML = `<iframe src="${esc(j.pull.live_view_url)}" title="Anchor live browser"></iframe>`;
+       if (j.pull?.status !== 'pulling') return viewInbox(true);
+       timer = setTimeout(watch, 1200); };
+     timer = setTimeout(watch, 1200); }
+  else if (busy) timer = setTimeout(() => viewInbox(true), 1200);
 }
 
 function story(i) {
@@ -479,7 +505,7 @@ async function viewInvoice(key, still=false) {
 
 async function viewHow() {
   STILL = false;
-  const [svg, q] = await Promise.all([fetch('/static/architecture.svg').then(r => r.text()), api('/api/quality').catch(() => ({cases:[]}))]);
+  const [svg, q, st] = await Promise.all([fetch('/static/architecture.svg').then(r => r.text()), api('/api/quality').catch(() => ({cases:[]})), api('/api/stats').catch(() => ({}))]);
   const rows = [
    ['1','Bring in.','Fetch from the AP inbox, or drop a PDF.','FastAPI app'],
    ['2','Read.','Claude reads the PDF into line items.','Claude on AWS Bedrock'],
@@ -498,6 +524,7 @@ async function viewHow() {
      <div class="pain"><b style="color:var(--amber)">Revenue leaks</b><span class="note">charges nobody checks against the contract</span></div>
      <div class="pain"><b style="color:var(--red)">Missed bills</b><span class="note">late fees, services shut off</span></div></div>
     <div style="font-size:15px">Billing Rep checks every bill against your own dated records, holds what doesn’t match, and pays the rest on time.</div></div>
+   ${impact(st)}
    <div class="row between"><div><h1>How a bill moves</h1><p class="sub">One agent. Each sponsor does one real job.</p></div><button class="btn" id="replay">Replay</button></div>
    <div class="panel glow how" id="how" style="padding:8px">${svg}</div>
    <div class="panel"><div class="lines how" style="background:transparent;padding:0">${rows.map((r,n) => `<div class="ln" style="font-weight:400;opacity:0;animation:rise .4s ease ${.3+n*.3}s forwards"><span class="n">${r[0]}</span><span><b>${r[1]}</b> ${r[2]}</span><span style="color:var(--blue);font-weight:600;white-space:nowrap">${r[3]}</span></div>`).join('')}</div></div>
@@ -517,6 +544,7 @@ async function viewHow() {
       dot.appendChild(m); dot.appendChild(o); s.appendChild(dot); }); }
   const badges = [...s.querySelectorAll('g')].find(g => g.getAttribute('font-weight') === '700');
   if (badges) { badges.classList.add('badges'); [...badges.children].forEach((b,n) => b.style.animationDelay = (0.4 + Math.floor(n/2)*0.4) + 's'); }
+  countUp();
   $('#replay').onclick = viewHow;
 }
 
