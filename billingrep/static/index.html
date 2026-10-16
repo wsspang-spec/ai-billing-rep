@@ -5,103 +5,137 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Billing Rep</title>
 <style>
-:root{--ink:#1D1D1F;--muted:#6E6E73;--line:#E5E5EA;--soft:#F5F5F7;--blue:#0066CC;--green:#17612F;--greenbg:#EAF6EE;--orange:#8F3B00;--orangebg:#FFF4E8;--red:#B3261E;--redbg:#FDECEA;--claude:#D97757;--surreal:#C2187A;--daytona:#1D1D1F}
+:root{--bg:#0B0D12;--panel:#141821;--panel2:#1A1F2B;--line:#262C3A;--ink:#E6E8EE;--muted:#8A90A2;--dim:#5B6273;--blue:#7AA2F7;--green:#9ECE6A;--amber:#E0AF68;--red:#F7768E;--purple:#BB9AF7;--claude:#E08A62;--surreal:#FF5FB4;--mono:ui-monospace,"SF Mono",Menlo,monospace}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;color:var(--ink);background:#fff;font-size:15px;line-height:1.45}
+html,body{background:var(--bg)}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;color:var(--ink);font-size:15px;line-height:1.45}
 a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 button{font:inherit;cursor:pointer}
-.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);z-index:5}
-.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px}
-.logo{width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px}
-.nav{display:flex;gap:6px}.nav a{padding:6px 12px;border-radius:999px;color:var(--ink)}.nav a.on{background:var(--soft);font-weight:600}.nav a:hover{text-decoration:none;background:var(--soft)}
-.right{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14px}
-main{max-width:1080px;margin:0 auto;padding:36px 32px 64px;display:flex;flex-direction:column;gap:26px;animation:fade .35s ease}
-h1{margin:0;font-size:34px;font-weight:600;letter-spacing:-.02em}
-h2{margin:0;font-size:17px;font-weight:600}
-.sub{margin:6px 0 0;color:var(--muted);font-size:17px}
-.btn{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #D2D2D7;background:#fff;color:var(--ink);font-size:15px;transition:transform .1s}
-.btn:active{transform:scale(.97)}
-.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
-.btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
-.btn.small{min-height:34px;padding:0 12px;font-size:13px;color:var(--muted)}
-.btn:disabled{opacity:.4;cursor:default}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,13,18,.85);backdrop-filter:blur(14px);z-index:5}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.nav{display:flex;gap:4px}.nav a{padding:6px 12px;border-radius:999px;color:var(--muted)}.nav a.on{background:var(--panel2);color:var(--ink);font-weight:600}.nav a:hover{text-decoration:none;color:var(--ink)}
+.right{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:13px}
+.live{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+main{max-width:1120px;margin:0 auto;padding:28px 28px 64px;display:flex;flex-direction:column;gap:18px;animation:fade .35s ease}
+h1{margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em}
+h2{margin:0;font-size:15px;font-weight:600}
+.lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:16px}
+.btn{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:14px;transition:all .15s}
+.btn:hover{border-color:#3A4254}.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#0B0D12;font-weight:600}
+.btn.white{background:var(--ink);border-color:var(--ink);color:var(--bg);font-weight:600}
+.btn.small{min-height:30px;padding:0 12px;font-size:12px;color:var(--muted)}
+.btn:disabled{opacity:.35;cursor:default}
 .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.between{justify-content:space-between}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
-.card{padding:18px 20px;border-radius:16px;background:var(--soft)}
-.card .k{font-size:14px;color:var(--muted)}.card .v{font-size:30px;font-weight:600;font-variant-numeric:tabular-nums}
-.card.o{background:var(--orangebg)}.card.o .k,.card.o .v{color:var(--orange)}
-.card.g{background:var(--greenbg)}.card.g .k,.card.g .v{color:var(--green)}
-.list{border-top:1px solid var(--line)}
-.item{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 4px;border-bottom:1px solid var(--line);animation:slide .45s cubic-bezier(.2,.8,.2,1)}
-.item .who{flex:1 1 260px;min-width:0}.item .who b{font-weight:500;font-size:17px}.item .who div{color:var(--muted);font-size:14px}
-.amt{text-align:right;font-variant-numeric:tabular-nums}.amt div:first-child{font-size:17px}.amt div:last-child{font-size:14px;color:var(--muted)}
-.pill{font-size:13px;padding:5px 12px;border-radius:999px;font-weight:500;background:var(--soft);white-space:nowrap}
-.s-Explained{background:var(--greenbg);color:var(--green)}
-.s-Needs-clarification,.s-Approved{background:var(--orangebg);color:var(--orange)}
-.s-Needs-review{background:var(--redbg);color:var(--red)}
-.s-Awaiting-vendor-response{background:#EAF1FC;color:#123F87}
-.s-Duplicate,.s-Checking{background:var(--soft);color:var(--muted)}
-.drop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:16px 20px;border:1.5px dashed #D2D2D7;border-radius:14px;color:var(--muted);font-size:14px;transition:all .2s}
-.drop.over{border-color:var(--blue);background:#F2F7FD;transform:scale(1.01)}
-.alert{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:14px 18px;border-radius:14px;background:var(--redbg);color:var(--red);font-size:15px;animation:slide .3s ease}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;animation:rise .45s ease both}
+.panel.glow{border-color:#34406A;box-shadow:0 0 0 1px rgba(122,162,247,.12),0 10px 40px rgba(122,162,247,.07)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{padding:16px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);animation:rise .45s ease both}
+.card .v{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+.card.amber .v{color:var(--amber)}.card.green .v{color:var(--green)}.card.blue .v{color:var(--blue)}
+.list{display:flex;flex-direction:column}
+.item{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 4px;border-top:1px solid var(--line);animation:slide .45s cubic-bezier(.2,.8,.2,1) both}
+.item:first-child{border-top:0}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0B0D12;flex:0 0 auto}
+.item .who{flex:1 1 240px;min-width:0}.item .who b{font-weight:600;font-size:15px}.item .who div{color:var(--muted);font-size:13px}
+.amt{text-align:right;font-variant-numeric:tabular-nums}.amt div:first-child{font-size:15px}.amt div:last-child{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.pill{font-size:12px;padding:4px 10px;border-radius:999px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.s-Explained{color:var(--green);background:rgba(158,206,106,.1);border-color:rgba(158,206,106,.3)}
+.s-Needs-clarification,.s-Approved{color:var(--amber);background:rgba(224,175,104,.1);border-color:rgba(224,175,104,.35)}
+.s-Needs-review{color:var(--red);background:rgba(247,118,142,.1);border-color:rgba(247,118,142,.35)}
+.s-Awaiting-vendor-response{color:var(--blue);background:rgba(122,162,247,.1);border-color:rgba(122,162,247,.35)}
+.s-Duplicate,.s-Checking{color:var(--muted);background:var(--panel2);border-color:var(--line)}
+.drop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 18px;border:1.5px dashed #343B4C;border-radius:14px;color:var(--muted);font-size:14px;transition:all .2s}
+.drop.over{border-color:var(--blue);background:rgba(122,162,247,.06);transform:scale(1.01)}
+.alert{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:12px 16px;border-radius:12px;background:rgba(247,118,142,.08);border:1px solid rgba(247,118,142,.35);color:var(--red);font-size:14px;animation:slide .3s ease}
 .alert button{border:0;background:none;color:var(--red);font-size:18px;line-height:1}
-.cols{display:flex;flex-wrap:wrap;gap:24px}.cols>*{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:16px}
-.box{padding:20px 22px;border-radius:18px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;animation:rise .45s ease both}
-.box.soft{background:var(--soft);border-color:var(--soft)}
-.box:nth-child(2){animation-delay:.08s}.box:nth-child(3){animation-delay:.16s}
-.lines{border-radius:16px;background:var(--soft);padding:4px 18px}
-.ln{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.ln:last-child{border-bottom:0;font-weight:600}
-.ln span:nth-child(2){flex:1}.ln .n{width:20px;color:var(--muted)}.num{font-variant-numeric:tabular-nums}
-.ln.bad{color:var(--orange);font-weight:600}.ln.ok{color:var(--green)}
+.cols{display:flex;flex-wrap:wrap;gap:18px}.cols>*{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:18px}
+.lines{border-radius:12px;background:var(--panel2);padding:2px 16px}
+.ln{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.ln:last-child{border-bottom:0;font-weight:600}
+.ln span:nth-child(2){flex:1}.ln .n{width:20px;color:var(--dim);font-family:var(--mono)}.num{font-variant-numeric:tabular-nums}
+.ln.bad{color:var(--amber);font-weight:600}.ln.ok{color:var(--green)}
 .note{font-size:13px;color:var(--muted)}
-.ok{color:var(--green)}.warn{color:var(--orange)}.err{color:var(--red)}
+.ok{color:var(--green)}.warn{color:var(--amber)}.err{color:var(--red)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:var(--soft);color:var(--ink);font-size:14px}
-.chip:hover{text-decoration:none;background:#EBEBF0}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);font-size:13px}
+.chip:hover{text-decoration:none;border-color:var(--blue)}
 .tline{display:flex;gap:4px;align-items:stretch}
-.seg{flex:1;border-radius:12px;padding:12px 14px;background:var(--soft);color:var(--muted);position:relative;transition:all .4s}
+.seg{flex:1;border-radius:12px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);position:relative}
 .seg b{display:block;font-size:22px;color:var(--ink)}
-.seg.on{background:var(--greenbg);color:var(--green)}.seg.on b{color:var(--green)}
-.seg.bad{background:var(--redbg);color:var(--red)}.seg.bad b{color:var(--red)}
-.marker{position:absolute;left:50%;bottom:-26px;transform:translateX(-50%);font-size:12px;font-weight:600;white-space:nowrap;color:var(--ink);animation:bob 1.6s ease-in-out infinite}
-.pipe{display:flex;align-items:flex-start;gap:0;margin:8px 0 2px}
-.node{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto;width:86px;text-align:center;font-size:12px;color:var(--muted)}
-.dot{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--soft);border:2px solid var(--line);transition:all .35s;opacity:.45}
-.dot svg{width:20px;height:20px}
-.node.done .dot{opacity:1;background:#fff;border-color:currentColor;animation:pop .35s ease}
-.node.live .dot{opacity:1;background:#fff;border-color:var(--blue);animation:pulse 1.1s ease-in-out infinite}
-.node.done,.node.live{color:var(--ink)}
-
-.n-claude .dot{color:var(--claude)}.n-surreal .dot{color:var(--surreal)}.n-daytona .dot{color:var(--daytona)}.n-you .dot{color:var(--blue)}
-.wire{flex:1 1 20px;height:2px;margin-top:19px;background:var(--line);position:relative;overflow:hidden;min-width:14px}
-.wire.done::after{content:"";position:absolute;inset:0;background:var(--blue);animation:fill .4s ease forwards;transform-origin:left}
-.ic{display:inline-flex}.ic svg{width:18px;height:18px}
-.ic.n-claude{color:var(--claude)}.ic.n-surreal{color:var(--surreal)}.ic.n-daytona{color:var(--daytona)}.ic.n-you{color:var(--blue)}.ic.n-anchor{color:#3B5BDB}
+.seg.on{border-color:rgba(158,206,106,.5);background:rgba(158,206,106,.08);color:var(--green)}.seg.on b{color:var(--green)}
+.seg.bad{border-color:rgba(247,118,142,.5);background:rgba(247,118,142,.08);color:var(--red)}.seg.bad b{color:var(--red)}
+.marker{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);font-size:11px;font-weight:600;white-space:nowrap;color:var(--ink);font-family:var(--mono);animation:bob 1.6s ease-in-out infinite}
+/* compact pipeline (inbox rows) */
+.pipe{display:flex;align-items:center;gap:0;margin:8px 0 0}
+.pdot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);color:var(--dim);transition:all .3s}
+.pdot svg{width:12px;height:12px}
+.pdot.done{color:var(--c);border-color:var(--c);box-shadow:0 0 10px color-mix(in srgb,var(--c) 45%,transparent)}
+.pdot.live{color:var(--blue);border-color:var(--blue);animation:pulse 1.1s infinite}
+.pwire{width:22px;height:1.5px;background:var(--line)}.pwire.done{background:var(--blue)}
+/* agent run (detail) */
+.run{display:flex;flex-direction:column;gap:0}
+.rstep{display:grid;grid-template-columns:40px 150px 1fr 90px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line);opacity:0;animation:rise .45s ease forwards}
+.rstep:first-child{border-top:0}
+.rico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--c);color:var(--c);box-shadow:0 0 14px color-mix(in srgb,var(--c) 35%,transparent)}
+.rico svg{width:18px;height:18px}
+.rname{font-weight:600;font-size:14px}.rname small{display:block;font-weight:400;color:var(--muted);font-family:var(--mono);font-size:11px}
+.rdet{font-size:13px;color:var(--ink)}
+.rbar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;position:relative}
+.rbar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--c);transform-origin:left;animation:fill .7s ease forwards}
+.rdur{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+.rstep.stop .rico{--c:var(--red)}.rstep.stop .rname{color:var(--red)}
+.guards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.guard{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:13px;opacity:0;animation:rise .4s ease forwards}
+.guard b{display:block;font-size:13px}.guard .gi{font-size:14px;line-height:1.2}
+.guard.pass .gi{color:var(--green)}.guard.stop{border-color:rgba(247,118,142,.45)}.guard.stop .gi{color:var(--red)}.guard.fix{border-color:rgba(224,175,104,.45)}.guard.fix .gi{color:var(--amber)}
 .steps{display:flex;flex-direction:column}
-.step{display:grid;grid-template-columns:28px 120px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;align-items:start;animation:rise .4s ease both}
-.step:last-child{border-bottom:0}.step .t{font-weight:600}
-.login{min-height:100vh;background:var(--soft);display:flex;align-items:center;justify-content:center;padding:24px}
-.login form{width:100%;max-width:400px;background:#fff;border-radius:20px;padding:40px 36px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);animation:rise .5s ease}
-.login label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
-.login input{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #D2D2D7;font:inherit;font-size:16px}
-.spinner{display:inline-block;width:12px;height:12px;border:2px solid #D2D2D7;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:6px}
-table.fin{width:100%;border-collapse:collapse;font-size:15px}table.fin td{padding:12px 4px;border-bottom:1px solid var(--line)}table.fin tr:last-child td{border-bottom:0}table.fin td:last-child{text-align:right;font-variant-numeric:tabular-nums}
-details>summary{cursor:pointer;font-weight:600;font-size:17px;list-style:none}details>summary::-webkit-details-marker{display:none}
+.step{display:grid;grid-template-columns:26px 110px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;align-items:start}
+.step:first-child{border-top:0}.step .t{font-weight:600}
+.ic{display:inline-flex}.ic svg{width:16px;height:16px}
+table.fin{width:100%;border-collapse:collapse;font-size:14px}table.fin td{padding:10px 2px;border-top:1px solid var(--line)}table.fin tr:first-child td{border-top:0}table.fin td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+details>summary{cursor:pointer;list-style:none}details>summary::-webkit-details-marker{display:none}
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:6px}
+/* login */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+.grid{position:absolute;inset:-50%;background-image:linear-gradient(rgba(122,162,247,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(122,162,247,.07) 1px,transparent 1px);background-size:44px 44px;transform:perspective(600px) rotateX(55deg);animation:gridmove 6s linear infinite;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 70%)}
+.orb{position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(122,162,247,.25),rgba(187,154,247,.08) 45%,transparent 70%);filter:blur(20px);animation:breathe 6s ease-in-out infinite}
+.login form{position:relative;width:100%;max-width:380px;background:rgba(20,24,33,.82);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:20px;padding:36px 32px;display:flex;flex-direction:column;gap:16px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:rise .6s ease}
+.login label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.login input{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:inherit;font-size:15px;text-transform:none;letter-spacing:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.login input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(122,162,247,.2)}
+.typed{font-family:var(--mono);font-size:13px;color:var(--muted);min-height:18px}.typed::after{content:"▍";color:var(--blue);animation:blink 1s steps(1) infinite}
+.sponsors{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.sponsors span{font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+/* how it works */
 .how svg{width:100%;height:auto;display:block}
-.how svg .arrows path{stroke-dasharray:420;stroke-dashoffset:420;animation:draw .9s ease forwards}
+.how svg>rect:first-of-type{fill:transparent}
+.how svg rect{fill:var(--panel2);stroke:var(--line)}
+.how svg rect[fill="#1D1D1F"]{fill:#18213A;stroke:var(--blue)}
+.how svg text{fill:var(--ink)}.how svg text[fill="#6E6E73"],.how svg text[fill="#D2D2D7"]{fill:var(--muted)}
+.how svg .arrows path{stroke:#4A5266;stroke-dasharray:420;stroke-dashoffset:420;animation:draw .9s ease forwards}
+.how svg marker path{fill:#4A5266}
 .how svg .badges>*{opacity:0;animation:fadein .4s ease forwards}
-.how .ln{animation:rise .4s ease both}
+.qrow{display:grid;grid-template-columns:44px 1fr 90px 70px;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:13px;align-items:center;opacity:0;animation:rise .35s ease forwards}
+.qrow:first-child{border-top:0}
+.tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;text-align:center}
+.tag.pass{color:var(--green);background:rgba(158,206,106,.12)}.tag.fail{color:var(--red);background:rgba(247,118,142,.12)}.tag.skip{color:var(--muted);background:var(--panel2)}
+.meter{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden}.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--blue));transform-origin:left;animation:fill 1.2s ease forwards}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-@keyframes pop{0%{transform:scale(.6)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,102,204,.35)}50%{box-shadow:0 0 0 8px rgba(0,102,204,0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(122,162,247,.45)}50%{box-shadow:0 0 0 7px rgba(122,162,247,0)}}
 @keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes draw{to{stroke-dashoffset:0}}
 @keyframes fadein{to{opacity:1}}
 @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-3px)}}
-@media (max-width:640px){.top{padding:12px 16px}main{padding:24px 16px 48px}h1{font-size:28px}.node{width:56px;font-size:10px}.step{grid-template-columns:24px 1fr}.step .t,.step span:last-child{grid-column:2}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes gridmove{to{background-position:0 44px}}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.12);opacity:1}}
+@media (max-width:680px){.top{padding:10px 14px}main{padding:20px 14px 48px}h1{font-size:24px}.rstep{grid-template-columns:36px 1fr}.rstep .rdet,.rstep>div:last-child{grid-column:2}.qrow{grid-template-columns:40px 1fr 60px}.qrow span:last-child{display:none}}
 </style>
 </head>
 <body>
@@ -112,12 +146,18 @@ const money = n => (n<0?'-':'') + '$' + Math.abs(+n||0).toLocaleString('en-US',{
 const signed = n => (n>0?'+':'') + money(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cls = s => 's-' + String(s||'').replace(/[^A-Za-z]/g,'-');
+const LABEL = {'Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Ready to send','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
+const label = s => LABEL[s] || s;
+const NEEDS = ['Needs clarification','Needs review','Approved'];
 const vn = v => String(v||'').replace(/\s*\(synthetic\)/ig,'').replace(/\bDemo\s+/,'');
 const fmtDate = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
 const month = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'long'}) : '';
+const now = () => new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
 const docName = id => { id = String(id||'').replace(/^term-/,''); const m = id.match(/^(contract|amendment|credit-promise)-([a-z])$/);
   if (m) return ({contract:'Contract',amendment:'Amendment','credit-promise':'Credit message'})[m[1]] + ' ' + m[2].toUpperCase();
-  const l = id.match(/-L(\d+)$/); return l ? 'Bill line ' + l[1] : id; };
+  const l = id.match(/-L(\d+)$/); return l ? 'Bill line ' + l[1] : 'Bill ' + id; };
+const docHref = (id, q) => `/doc/${encodeURIComponent(id)}${q ? '?q=' + encodeURIComponent(q) : ''}`;
+const vcolor = v => /harbor/i.test(v) ? 'var(--amber)' : 'var(--blue)';
 let me = null, timer = null, localErrors = [];
 
 const ICON = {
@@ -127,21 +167,20 @@ const ICON = {
   flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
   inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 14h5l1 2h4l1-2h5"/></svg>',
   globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8"/></svg>',
 };
 const PIPE = [
-  {step:'Received', icon:'inbox', c:'n-you', label:'Bill in'},
-  {step:'Read', icon:'claude', c:'n-claude', label:'Claude reads'},
-  {step:'Recalled', icon:'db', c:'n-surreal', label:'SurrealDB recalls'},
-  {step:'Compared', icon:'box', c:'n-daytona', label:'Daytona checks'},
-  {step:'Decided', icon:'claude', c:'n-claude', label:'Claude decides'},
-  {step:'Routed', icon:'flag', c:'n-you', label:'Routed'},
+  {step:'Received', icon:'inbox', c:'var(--muted)', label:'Bill in', who:'FastAPI'},
+  {step:'Read', icon:'claude', c:'var(--claude)', label:'Claude reads', who:'AWS Bedrock'},
+  {step:'Recalled', icon:'db', c:'var(--surreal)', label:'SurrealDB recalls', who:'price as of the bill date'},
+  {step:'Compared', icon:'box', c:'var(--ink)', label:'Daytona checks', who:'sandboxed math'},
+  {step:'Decided', icon:'claude', c:'var(--claude)', label:'Claude decides', who:'AWS Bedrock'},
+  {step:'Routed', icon:'flag', c:'var(--blue)', label:'Routed', who:'policy in code'},
 ];
 function pipe(steps, live) {
-  const done = new Set(steps); const firstOpen = PIPE.findIndex(p => !done.has(p.step));
-  return '<div class="pipe">' + PIPE.map((p,i) => {
-    const st = done.has(p.step) ? 'done' : (live && i === firstOpen ? 'live' : '');
-    return (i ? `<div class="wire ${done.has(p.step)?'done':''}"></div>` : '') + `<div class="node ${p.c} ${st}"><div class="dot">${ICON[p.icon]}</div>${p.label}</div>`;
-  }).join('') + '</div>';
+  const done = new Set(steps); const first = PIPE.findIndex(p => !done.has(p.step));
+  return '<div class="pipe">' + PIPE.map((p,i) => (i ? `<div class="pwire ${done.has(p.step)?'done':''}"></div>` : '') +
+    `<div class="pdot ${done.has(p.step)?'done':(live && i===first?'live':'')}" style="--c:${p.c}" title="${p.label}">${ICON[p.icon]}</div>`).join('') + '</div>';
 }
 
 async function api(path, opts={}) {
@@ -154,8 +193,8 @@ async function api(path, opts={}) {
 
 function shell(active, inner) {
   return `<div class="top"><div class="row" style="gap:18px"><div class="brand"><div class="logo">BR</div>Billing Rep</div>
-  <nav class="nav"><a href="#/inbox" class="${active==='inbox'?'on':''}">Inbox</a><a href="#/finance" class="${active==='finance'?'on':''}">Finance</a><a href="#/how" class="${active==='how'?'on':''}">How it works</a></nav></div>
-  <div class="right">${me?.show_reset===false?'':'<button class="btn small" id="reset">Reset demo</button>'}<span>${esc(me?.name)}</span><a href="#" id="out">Sign out</a></div></div><main>${inner}</main>`;
+  <nav class="nav"><a href="#/inbox" class="${active==='inbox'?'on':''}">Dashboard</a><a href="#/how" class="${active==='how'?'on':''}">How it works</a></nav></div>
+  <div class="right"><span class="live"><i></i>live · ${now()}</span>${me?.show_reset===false?'':'<button class="btn small" id="reset">Reset demo</button>'}<span>${esc(me?.name)}</span><a href="#" id="out">Sign out</a></div></div><main>${inner}</main>`;
 }
 function wireShell() {
   $('#out').onclick = async e => { e.preventDefault(); await api('/api/logout',{method:'POST'}); me=null; location.hash='#/login'; };
@@ -163,14 +202,16 @@ function wireShell() {
 }
 
 function viewLogin(err='') {
-  $('#app').innerHTML = `<div class="login"><form id="f">
-   <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px"><div class="logo" style="width:44px;height:44px;border-radius:12px;font-size:16px">BR</div>
-   <h1 style="font-size:26px;margin-top:8px">Billing Rep</h1><p class="sub" style="margin:0;font-size:15px">Every bill checked before you pay it.</p></div>
+  $('#app').innerHTML = `<div class="login"><div class="grid"></div><div class="orb"></div><form id="f">
+   <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><div class="logo" style="width:46px;height:46px;border-radius:13px;font-size:16px;box-shadow:0 0 30px rgba(230,232,238,.25)">BR</div>
+   <h1 style="font-size:26px;margin-top:6px">Billing Rep</h1><div class="typed" id="typed"></div></div>
    <label>Email<input name="email" type="email" value="maria@atlas.example" autocomplete="username"></label>
    <label>Password<input name="password" type="password" value="demo-password" autocomplete="current-password"></label>
    ${err?`<div class="err" style="font-size:14px">${esc(err)}</div>`:''}
-   <button class="btn primary" style="min-height:48px">Sign in</button>
-   <p class="note" style="text-align:center;margin:0">Atlas Retail · Accounts payable</p></form></div>`;
+   <button class="btn white" style="min-height:46px">Sign in</button>
+   <div class="sponsors"><span>Claude · AWS Bedrock</span><span>SurrealDB</span><span>Daytona</span><span>Anchor</span><span>Arize AX</span></div></form></div>`;
+  const text = 'Every bill checked before you pay it.'; let n = 0; const t = $('#typed');
+  const tick = () => { if (!t.isConnected) return; t.textContent = text.slice(0, ++n); if (n < text.length) setTimeout(tick, 38); }; tick();
   $('#f').onsubmit = async e => {
     e.preventDefault(); const f = new FormData(e.target);
     try { await api('/api/login',{method:'POST',body:JSON.stringify({email:f.get('email'),password:f.get('password')})}); me = null; location.hash = '#/inbox'; }
@@ -188,34 +229,49 @@ async function upload(file) {
 }
 
 async function viewInbox() {
-  const d = await api('/api/invoices');
+  const [d, f] = await Promise.all([api('/api/invoices'), api('/api/cfo')]);
   const inv = d.invoices;
-  const needs = inv.filter(i => ['Needs clarification','Needs review','Approved'].includes(i.status));
+  const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
-  const scheduled = inv.reduce((s,i) => s + (i.payment?.amount||0), 0);
   const busy = d.processing.length || inv.some(i => i.status === 'Checking');
   const errors = [...localErrors, ...d.errors];
   const allClear = inv.length && !needs.length && !busy && !errors.length;
-  const rows = inv.map(i => `<div class="item"><div class="who"><b>${esc(vn(i.vendor))}</b><div>${esc(i.account)} · ${month(i.period_start)} bill · ${esc(i.invoice_number)}</div>
-       ${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
-     <div class="amt"><div>${money(i.total)}</div><div>${i.delta==null?'':signed(i.delta)+' vs last month'}</div></div>
-     <span class="pill ${cls(i.status)}">${i.status==='Checking'?'<span class="spinner"></span>':''}${esc(i.status)}</span>
-     <a class="btn ${['Needs clarification','Needs review'].includes(i.status)?'dark':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${['Needs clarification','Needs review'].includes(i.status)?'Review':'Open'}</a></div>`).join('');
+  const row = (i,n) => `<div class="item" style="animation-delay:${n*.05}s"><div class="av" style="background:${vcolor(i.vendor)}">${esc(vn(i.vendor).slice(0,2).toUpperCase())}</div>
+     <div class="who"><b>${esc(vn(i.vendor))} <span class="note" style="font-weight:400">· ${esc(i.invoice_number)}</span></b><div>${i.status==='Checking' ? 'Checking…' : esc(i.why || '')}</div>${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
+     <div class="amt"><div>${money(i.total)}</div><div>${i.delta==null?'':signed(i.delta)+' vs last'}</div></div>
+     <span class="pill ${cls(i.status)}">${i.status==='Checking'?'<span class="spinner"></span>':''}${esc(label(i.status))}</span>
+     <a class="btn ${NEEDS.includes(i.status)?'white':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${NEEDS.includes(i.status)?'Review':'Open'}</a></div>`;
+  const active = inv.filter(i => NEEDS.includes(i.status) || i.status === 'Checking');
+  const handled = inv.filter(i => !NEEDS.includes(i.status) && i.status !== 'Checking');
+  const rows = active.map(row).join('');
+  const handledRows = handled.map(row).join('');
   const checkingNums = inv.filter(i => i.status === 'Checking').map(i => i.invoice_number);
   const reading = d.processing.filter(n => !checkingNums.some(x => n.startsWith(x)))
-     .map(n => `<div class="item"><div class="who"><b>${esc(n)}</b><div>Reading the PDF…</div>${pipe(['Received'], true)}</div></div>`).join('');
+     .map(n => `<div class="item"><div class="av" style="background:var(--panel2);color:var(--muted)">··</div><div class="who"><b>${esc(n)}</b><div>Claude is reading the PDF…</div>${pipe(['Received'], true)}</div></div>`).join('');
+  const pays = (f.payments||[]).map(p => `<tr><td><span class="lbl">${fmtDate(p.scheduled_on)}</span> &nbsp;${esc(vn(p.vendor))} · ${esc(p.invoice)}${p.part?' <span class="note">(undisputed part)</span>':''}</td><td>${money(p.amount)}</td></tr>`).join('');
+  const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)} from ${fmtDate(c.effective)} · <a href="${docHref(c.source)}" target="_blank">${docName(c.source)} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
   $('#app').innerHTML = shell('inbox', `
-   <div class="row between"><div><h1>${allClear?'All caught up.':'October bills'}</h1><p class="sub">${allClear?'Nothing needs you.':'Each bill checked against what you agreed to pay.'}</p></div>
-   <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf,.pdf" hidden></label>
-   <button class="btn primary" id="fetch" ${d.inbox_waiting.length?'':'disabled'}>Fetch from inbox${d.inbox_waiting.length?` (${d.inbox_waiting.length})`:''}</button></div></div>
-   <div class="drop" id="drop"><span>Drop a PDF invoice here</span><span>No PDF handy? <a href="/samples/N-OCT-303.pdf" download>Get a sample bill</a></span></div>
-   ${errors.map(e => `<div class="alert"><span>${esc(e)}</span><button aria-label="Dismiss">×</button></div>`).join('')}
+   <div class="panel glow"><div class="row between"><div><div class="lbl">Atlas Retail · accounts payable</div>
+     <h1 style="margin-top:6px">${allClear?'All caught up.':(needs.length?`${inv.length} bills checked. <span style="color:var(--amber)">${needs.length} need${needs.length>1?'':'s'} you.</span>`:(inv.length?`${inv.length} bill${inv.length>1?'s':''} checked.`:'October bills'))}</h1></div>
+     <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf,.pdf" hidden></label>
+     <button class="btn primary" id="fetch" ${d.inbox_waiting.length?'':'disabled'}>Fetch from inbox${d.inbox_waiting.length?` (${d.inbox_waiting.length})`:''}</button></div></div>
+    <div class="drop" id="drop"><span>Drop a PDF invoice here</span><span>No PDF handy? <a href="/samples/next" download>Get a new sample bill</a></span></div>
+    ${errors.map(e => `<div class="alert"><span>${esc(e)}</span><button aria-label="Dismiss">×</button></div>`).join('')}
+    <div class="row between" style="margin-top:4px"><span class="lbl" style="color:var(--amber)">Needs you · ${needs.length}</span></div>
+    <div class="list">${rows}${reading}${!active.length && !reading ? `<div class="item"><div class="who"><b>${inv.length ? 'Nothing needs you' : 'No bills yet'}</b><div>${inv.length ? 'Every bill below was checked and handled.' : 'Fetch from the inbox, or drop a PDF.'}</div></div></div>`:''}</div></div>
+   ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">OK to pay, waiting on vendor, or skipped</span></summary><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
    <div class="cards">
-    <div class="card o"><div class="k">Needs you</div><div class="v">${needs.length}</div></div>
-    <div class="card g"><div class="k">Explained by the agent</div><div class="v">${explained.length}</div></div>
-    <div class="card"><div class="k">Scheduled to pay</div><div class="v">${money(scheduled)}</div></div>
+    <div class="card amber"><div class="lbl">Needs you</div><div class="v">${needs.length}</div></div>
+    <div class="card green"><div class="lbl">OK to pay</div><div class="v">${explained.length}</div></div>
+    <div class="card blue"><div class="lbl">Scheduled to pay</div><div class="v">${money(f.scheduled_payments_simulated)}</div></div>
+    <div class="card amber"><div class="lbl">Open questions</div><div class="v">${money(f.billed_exposure_under_review)}</div></div>
+    <div class="card"><div class="lbl">Saved so far</div><div class="v">${money(f.realized_savings)}</div></div>
    </div>
-   <div class="list">${rows}${reading}${!inv.length && !reading ? `<div class="item"><div class="who"><b>No bills yet</b><div>Fetch from the inbox, or drop a PDF.</div></div></div>`:''}</div>`);
+   <div class="cols"><div>
+     <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated queue</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
+    <div><div class="panel"><h2>Price changes and credits</h2><table class="fin">${ch}
+     <tr><td>Credit promised by Harbor, not on any bill · <a href="${docHref('credit-promise-b')}" target="_blank">Message ↗</a></td><td>${money(f.credits.promised)}</td></tr>
+     <tr><td>Credits actually applied</td><td>${money(f.credits.applied)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
   $('#file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
@@ -233,9 +289,44 @@ function story(i) {
   if (i.status === 'Explained') return { h: i.delta ? `${signed(i.delta)}, and it was expected.` : 'Same as last month.', s: t && i.delta ? `The new price started ${fmtDate(t.valid_from)} (${docName(t.source)}). This bill matches it.` : 'Every line matches what you agreed to pay.' };
   if (i.status === 'Needs review') { const l = bad[0]; return { h: 'Billed a price that wasn’t in effect yet.', s: l ? `${money(l.amount)} billed for ${month(i.period_start)}, but the price then was ${money(l.expected)}.` : '' }; }
   if (['Needs clarification','Approved','Awaiting vendor response'].includes(i.status)) { const l = bad[0];
-    return { h: i.status==='Awaiting vendor response' ? 'Asked Harbor about the new charge.' : `${money(c.unsupported_amount)} that nothing explains.`, s: l ? `“${l.description}” isn’t in your contract.` : '' }; }
-  if (i.status === 'Duplicate') return { h: 'You already have this bill.', s: 'Same invoice number. No second payment.' };
+    return { h: i.status==='Awaiting vendor response' ? 'Asked the vendor about the new charge.' : `${money(c.unsupported_amount)} that nothing explains.`, s: l ? `“${l.description}” isn’t in your contract.` : '' }; }
+  if (i.status === 'Duplicate') return { h: 'You already have this bill.', s: 'Same invoice number. The agent stopped before any payment.' };
   return { h: 'Checking…', s: '' };
+}
+
+function agentRun(i) {
+  const evs = i.events || [];
+  const t = e => new Date(e.at).getTime();
+  const steps = evs.map((e, n) => ({ e, p: PIPE.find(p => p.step === e.step), dur: n ? (t(e) - t(evs[n-1])) / 1000 : 0 }));
+  const total = steps.reduce((s, x) => s + Math.max(x.dur, 0), 0) || 1;
+  const rows = steps.map((x, n) => {
+    const stop = x.e.step === 'Duplicate' || x.e.step === 'Blocked';
+    const p = x.p || { icon: stop ? 'stop' : (x.e.step === 'Submitted' ? 'globe' : 'flag'), c: stop ? 'var(--red)' : (x.e.step === 'Submitted' ? 'var(--purple)' : 'var(--blue)'), label: stop ? 'Guard stopped it' : x.e.step, who: x.e.sponsor };
+    const w = Math.max(4, Math.round(100 * Math.max(x.dur, 0) / total));
+    return `<div class="rstep ${stop?'stop':''}" style="animation-delay:${n*.22}s;--c:${p.c}"><div class="rico">${ICON[p.icon]}</div>
+      <div class="rname">${esc(p.label)}<small>${esc(x.e.sponsor || p.who)}</small></div><div class="rdet">${esc(x.e.detail)}</div>
+      <div><div class="rbar"><i style="width:${w}%;animation-delay:${n*.22+.15}s"></i></div><div class="rdur">${x.dur ? x.dur.toFixed(1)+' s' : '—'}</div></div></div>`; }).join('');
+  return `<div class="panel glow"><div class="row between"><div><div class="lbl">Agent run · ${esc((i.trace_id||'').slice(0,8))}</div><h2 style="margin-top:4px">What the agent did, step by step</h2></div>
+    <a class="chip" href="https://app.arize.com" target="_blank">Trace in Arize ↗</a></div><div class="run">${rows}</div></div>`;
+}
+
+function guardrails(i) {
+  const c = i.checks || {}, d = i.decision || {}, a = i.action;
+  const g = [];
+  if (i.status === 'Duplicate') g.push(['stop','Duplicate check','Same invoice number seen before: stopped, no payment']);
+  else g.push(['pass','Duplicate check','New invoice number']);
+  if (c.lines) {
+    g.push([c.totals_ok ? 'pass' : 'stop', 'Totals add up', c.totals_ok ? `Lines = ${money(c.billed_total)}` : 'Lines don’t match the total']);
+    g.push(['pass','Price as of the bill date', `Recalled for ${fmtDate(i.period_start)}, not today’s price`]);
+    g.push([(d.citations||[]).length ? 'pass' : 'stop', 'Every claim has a source', `${(d.citations||[]).length} cited documents`]);
+  }
+  (d.guards||[]).forEach(x => g.push(['fix','Model corrected by code', x]));
+  if (a) g.push([a.status === 'Proposed' ? 'stop' : 'pass', 'Human approval before sending', a.status === 'Proposed' ? 'Waiting for you: sending is blocked' : `Approved by ${a.approved_by}`]);
+  if (a?.status === 'Submitted') g.push(['pass','No “sent” without proof', `Portal confirmed ${a.case_id}`]);
+  if (i.status === 'Explained') g.push(['pass','Payment only after checks', 'Scheduled (simulated)']);
+  const ic = {pass:'✓', stop:'■', fix:'⚠'};
+  return `<div class="panel"><div class="row between"><h2>Guardrails</h2><span class="lbl">enforced in code</span></div><div class="guards">${g.map((x,n) =>
+    `<div class="guard ${x[0]}" style="animation-delay:${.3+n*.1}s"><span class="gi">${ic[x[0]]}</span><div><b>${esc(x[1])}</b><span class="note">${esc(x[2])}</span></div></div>`).join('')}</div></div>`;
 }
 
 function priceTimeline(i) {
@@ -244,9 +335,9 @@ function priceTimeline(i) {
   const line = (i.checks?.lines||[]).find(l => l.term_id); const billedOk = line ? line.verdict === 'matches_term' : true;
   const segs = ts.map(t => { const on = used && used.key === t.key;
     const until = t.valid_to ? '–' + fmtDate(t.valid_to) : ' onward';
-    return `<div class="seg ${on ? (billedOk ? 'on' : 'bad') : ''}"><span class="note" style="color:inherit">${fmtDate(t.valid_from)}${until}</span><b>${money(t.value)}</b>
-      <a href="/doc/${encodeURIComponent(t.source)}" target="_blank" style="font-size:13px">${docName(t.source)} ↗</a>${on ? `<span class="marker">▲ this bill (${month(i.period_start)})</span>` : ''}</div>`; }).join('');
-  return `<div class="box"><h2>${ts.length > 1 ? 'Price over time' : 'What you agreed to pay'}</h2><div class="tline" style="margin-bottom:26px">${segs}</div></div>`;
+    return `<div class="seg ${on ? (billedOk ? 'on' : 'bad') : ''}"><span class="lbl" style="color:inherit">${fmtDate(t.valid_from)}${until}</span><b>${money(t.value)}</b>
+      <a href="${docHref(t.source, t.quote)}" target="_blank" style="font-size:13px">${docName(t.source)} ↗</a>${on ? `<span class="marker">▲ this bill · ${month(i.period_start)}</span>` : ''}</div>`; }).join('');
+  return `<div class="panel"><h2>${ts.length > 1 ? 'Price over time' : 'What you agreed to pay'}</h2><div class="tline" style="margin-bottom:22px">${segs}</div></div>`;
 }
 
 async function viewInvoice(key) {
@@ -257,80 +348,52 @@ async function viewInvoice(key) {
      return `<div class="ln ${bad?'bad':(v?'ok':'')}"><span class="n">${l.line_no}</span><span>${esc(l.description)}${v?.new_line?' · new':''}</span><span class="num">${money(l.amount)}</span></div>`; }).join('')
      + `<div class="ln"><span class="n"></span><span>Total</span><span class="num">${money(i.total)}</span></div>`;
   const evidence = [...new Map((d.citations||[]).map(x => [String(x.source).replace(/^term-/,''), x])).values()]
-     .map(x => `<a class="chip" href="/doc/${encodeURIComponent(x.source)}" target="_blank" title="${esc(x.quote)}">${esc(docName(x.source))} ↗</a>`).join('');
+     .map(x => `<a class="chip" href="${docHref(x.source, x.quote)}" target="_blank" title="${esc(x.quote)}">${esc(docName(x.source))} ↗</a>`).join('');
   let act = '';
-  if (i.status === 'Explained' && p) act = `<div class="box soft"><div class="note">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">Scheduled automatically, 3 days before it’s due (${fmtDate(p.due_on)}). Simulated: no money moves in this demo.</div></div>`;
-  else if (i.status === 'Needs review') act = `<div class="box soft"><h2>Held for you</h2><div>No payment, nothing sent.</div></div>`;
-  else if (i.status === 'Duplicate') act = `<div class="box soft"><h2>No second payment</h2><div>Same as <a href="#/invoice/${encodeURIComponent(i.duplicate_of)}">${esc(i.duplicate_of)}</a>.</div></div>`;
+  if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">Scheduled automatically, 3 days before it’s due (${fmtDate(p.due_on)}). Simulated: no money moves.</div></div>`;
+  else if (i.status === 'Needs review') act = `<div class="panel"><h2>Held for you</h2><div class="note">No payment, nothing sent.</div></div>`;
+  else if (i.status === 'Duplicate') act = `<div class="panel"><h2>No second payment</h2><div>Same as <a href="#/invoice/${encodeURIComponent(i.duplicate_of)}">${esc(i.duplicate_of)}</a>.</div></div>`;
   else if (a) {
     const approved = ['Approved','Submitted','Failed'].includes(a.status);
-    if (a.status === 'Submitted') act = `<div class="box soft"><h2>Done</h2><div class="steps">
-       <div class="step"><span class="ic n-anchor">${ICON.globe}</span><span class="t">Filed</span><span>Case <b>${esc(a.case_id)}</b> on Harbor’s portal · <a href="/portal/cases" target="_blank">View it ↗</a></span></div>
-       <div class="step"><span class="ic n-you">${ICON.flag}</span><span class="t">Paid the rest</span><span>${money(a.undisputed)} scheduled (simulated)</span></div>
-       <div class="step"><span class="ic n-surreal">${ICON.db}</span><span class="t">Waiting</span><span>${money(a.amount)} stays open until Harbor answers</span></div>
-       ${a.voice?.url?`<div class="step"><span class="ic">▶</span><span class="t">Message</span><span><audio controls src="${esc(a.voice.url)}" style="height:32px"></audio></span></div>`:''}</div>
-       <div class="note">Approved by ${esc(a.approved_by)}</div></div>`;
-    else act = `<div class="box soft"><h2>The agent suggests</h2>
-       <div class="steps"><div class="step"><span class="ic n-you">${ICON.flag}</span><span class="t">Pay</span><span>${money(a.undisputed)}, the part that matches the contract</span></div>
-       <div class="step"><span class="ic n-surreal">${ICON.db}</span><span class="t">Hold</span><span>${money(a.amount)} until Harbor explains it</span></div>
-       <div class="step"><span class="ic n-anchor">${ICON.globe}</span><span class="t">Ask Harbor</span><span>On their portal. <details><summary style="font-size:14px;font-weight:400;color:var(--blue)">Read the message</summary><div class="note" style="margin-top:6px">${esc(a.message)}</div></details></span></div></div>
+    if (a.status === 'Submitted') act = `<div class="panel glow"><h2>Done</h2><div class="steps">
+       <div class="step"><span class="ic" style="color:var(--purple)">${ICON.globe}</span><span class="t">Filed</span><span>Case <b>${esc(a.case_id)}</b> on the vendor portal · <a href="/portal/cases" target="_blank">View it ↗</a></span></div>
+       <div class="step"><span class="ic" style="color:var(--blue)">${ICON.flag}</span><span class="t">Paid the rest</span><span>${money(a.undisputed)} scheduled (simulated)</span></div>
+       <div class="step"><span class="ic" style="color:var(--surreal)">${ICON.db}</span><span class="t">Waiting</span><span>${money(a.amount)} stays open until the vendor answers</span></div></div>
+       <div class="note">Approved by ${esc(a.approved_by)} · filed by Anchor Browser</div></div>`;
+    else act = `<div class="panel glow"><h2>The agent suggests</h2>
+       <div class="steps"><div class="step"><span class="ic" style="color:var(--blue)">${ICON.flag}</span><span class="t">Pay</span><span>${money(a.undisputed)}, the part that matches the contract</span></div>
+       <div class="step"><span class="ic" style="color:var(--surreal)">${ICON.db}</span><span class="t">Hold</span><span>${money(a.amount)} until the vendor explains it</span></div>
+       <div class="step"><span class="ic" style="color:var(--purple)">${ICON.globe}</span><span class="t">Ask</span><span>On the vendor’s portal. <details><summary style="font-size:13px;color:var(--blue)">Read the message</summary><div class="note" style="margin-top:6px">${esc(a.message)}</div></details></span></div></div>
        <div class="row"><button class="btn primary" id="approve" ${approved?'disabled':''}>${approved?'✓ Approved':'Approve'}</button>
-       <button class="btn dark" id="send" ${approved?'':'disabled'}>Send to Harbor</button>
+       <button class="btn white" id="send" ${approved?'':'disabled'}>Send to vendor</button>
        ${approved?'':'<a href="#" id="tryblock" class="note">Try sending without approval</a>'}</div>
        ${a.status==='Failed'?`<div class="err">Not sent: ${esc(a.portal?.error||'no confirmation from the portal')}. Try again.</div>`:''}<div id="actmsg" class="note"></div></div>`;
   }
-  const evs = Object.fromEntries((i.events||[]).map(e => [e.step, e]));
-  const trail = PIPE.filter(p => evs[p.step]).map((p,n) => `<div class="step" style="animation-delay:${n*.06}s"><span class="ic ${p.c}">${ICON[p.icon]}</span><span class="t">${p.label}</span><span>${esc(evs[p.step].detail)}</span></div>`).join('');
-
   $('#app').innerHTML = shell('inbox', `
-   <div class="row" style="gap:8px"><a href="#/inbox">‹ Inbox</a><span class="note">${esc(vn(i.vendor))} · ${esc(i.account)} · ${esc(i.invoice_number)}</span></div>
-   <div><span class="pill ${cls(i.status)}">${esc(i.status)}</span><h1 style="margin-top:12px">${st.h}</h1><p class="sub">${esc(st.s)}</p></div>
-   ${pipe((i.events||[]).map(e=>e.step), i.status==='Checking')}
+   <div class="row" style="gap:8px"><a href="#/inbox">‹ Dashboard</a><span class="note">${esc(vn(i.vendor))} · ${esc(i.account)} · ${esc(i.invoice_number)}</span></div>
+   <div><span class="pill ${cls(i.status)}">${esc(label(i.status))}</span><h1 style="margin-top:10px">${st.h}</h1><p class="sub">${esc(st.s)}</p></div>
+   ${agentRun(i)}
    <div class="cols">
     <div>
-     <div class="box"><div class="row between"><h2>${month(i.period_start)} bill</h2><a href="${esc(i.file)}" target="_blank" class="note">View bill ↗</a></div><div class="lines">${lines}</div><div class="note">Last month: ${money(c.prior_total)}</div></div>
-     ${evidence?`<div class="box"><h2>Evidence</h2><div class="chips">${evidence}</div></div>`:''}
+     <div class="panel"><div class="row between"><h2>${month(i.period_start)} bill</h2><a href="${esc(i.file)}" target="_blank" class="note">View bill ↗</a></div><div class="lines">${lines}</div><div class="note">Last month: ${money(c.prior_total)}</div></div>
+     ${evidence?`<div class="panel"><h2>Evidence</h2><div class="chips">${evidence}</div><div class="note">Claude’s reasoning: ${esc(d.summary||'')}</div></div>`:''}
     </div>
-    <div>${priceTimeline(i)}${act}</div>
+    <div>${act}${priceTimeline(i)}</div>
    </div>
-   <details class="box"><summary>› How the agent got here</summary>
-    <div class="steps">${trail}</div>
-    <div class="note">Claude’s reasoning: ${esc(d.summary||'')}</div>
-    <div class="note">Checks in code: totals ${c.totals_ok?'✓':'✗'} · dates ${c.dates_ok?'✓':'✗'} · every claim has a source ${(d.citations||[]).length?'✓':'✗'}. The same steps are traced in <a href="https://app.arize.com" target="_blank">Arize ↗</a> (project ai-billing-rep, trace ${esc((i.trace_id||'').slice(0,12))}…).</div></details>`);
+   ${guardrails(i)}`);
   wireShell();
   const msg = t => { const m = $('#actmsg'); if (m) m.innerHTML = t; };
   if ($('#approve')) $('#approve').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/approve`,{method:'POST'}); viewInvoice(key); };
-  if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Anchor is opening Harbor’s portal and filing the question (about 20 seconds)…');
+  if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Anchor is opening the vendor’s portal and filing the question (about 20 seconds)…');
      try { await api(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST'}); } catch (x) { msg('<span class="err">'+esc(x.message)+'</span>'); $('#send').disabled = false; return; } viewInvoice(key); };
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
-     msg(r.status===403 ? `<span class="err">Blocked: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
+     msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
   if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key), 1200);
 }
 
-async function viewFinance() {
-  const f = await api('/api/cfo');
-  const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)}/month from ${fmtDate(c.effective)} · <a href="/doc/${encodeURIComponent(c.source)}" target="_blank">${docName(c.source)} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
-  const pays = (f.payments||[]).map(p => `<tr><td>${fmtDate(p.scheduled_on)} · ${esc(vn(p.vendor))} · ${esc(p.invoice)}${p.part?' <span class="note">(undisputed part)</span>':''}</td><td>${money(p.amount)}</td></tr>`).join('');
-  $('#app').innerHTML = shell('finance', `
-   <div><h1>This month at a glance</h1><p class="sub">What you owe, what’s open, what’s actually saved.</p></div>
-   <div class="cards">
-    <div class="card"><div class="k">Billed</div><div class="v">${money(f.billed_this_month)}</div></div>
-    <div class="card g"><div class="k">Scheduled to pay</div><div class="v">${money(f.scheduled_payments_simulated)}</div></div>
-    <div class="card o"><div class="k">Open questions</div><div class="v">${money(f.billed_exposure_under_review)}</div></div>
-    <div class="card"><div class="k">Saved so far</div><div class="v">${money(f.realized_savings)}</div></div>
-   </div>
-   <div class="box"><h2>Payments scheduled <span class="note">(simulated queue)</span></h2><table class="fin">${pays||'<tr><td>None yet</td><td></td></tr>'}</table></div>
-   <div class="box"><h2>Price changes</h2><table class="fin">${ch||'<tr><td>None</td><td></td></tr>'}</table></div>
-   <div class="box"><h2>Credits</h2><table class="fin">
-    <tr><td>Promised by Harbor, not on any bill yet · <a href="/doc/credit-promise-b" target="_blank">Message ↗</a></td><td>${money(f.credits.promised)}</td></tr>
-    <tr><td>Actually applied</td><td>${money(f.credits.applied)}</td></tr></table>
-    <div class="note">A promise isn’t a saving until it shows up on a bill.</div></div>`);
-  wireShell();
-}
-
 async function viewHow() {
-  const svg = await fetch('/static/architecture.svg').then(r => r.text());
+  const [svg, q] = await Promise.all([fetch('/static/architecture.svg').then(r => r.text()), api('/api/quality').catch(() => ({cases:[]}))]);
   const rows = [
    ['1','Bring in.','Fetch from the AP inbox, or drop a PDF.','FastAPI app'],
    ['2','Read.','Claude reads the PDF into line items.','Claude on AWS Bedrock'],
@@ -338,17 +401,25 @@ async function viewHow() {
    ['4','Check.','The comparison math runs in a sandbox.','Daytona'],
    ['5','Decide.','Explained → pay. Unexplained → ask you.','Claude on AWS Bedrock'],
    ['6','Act.','After you approve: file the question on the carrier portal.','Anchor Browser'],
-   ['∞','Watch.','Every step traced; test cases scored.','Arize AX']];
+   ['∞','Watch.','Every step traced; labeled cases scored.','Arize AX']];
+  const sc = q.score || {}; const pct = sc.case_count ? Math.round(100 * sc.passed / sc.case_count) : 0;
+  const trials = Object.entries(q.trials?.by_case || {}).map(([k,v]) => `${k} ${v.passed}/${v.runs}`).join(' · ');
+  const qrows = (q.cases||[]).map((c,n) => `<div class="qrow" style="animation-delay:${.2+n*.06}s"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}</span>
+     <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span><span class="note" style="text-align:right;font-family:var(--mono)">${c.secs?c.secs+' s':''}</span></div>`).join('');
   $('#app').innerHTML = shell('how', `<div class="row between"><div><h1>How a bill moves</h1><p class="sub">One agent. Each sponsor does one real job.</p></div><button class="btn" id="replay">Replay</button></div>
-   <div class="how" id="how" style="border:1px solid var(--line);border-radius:18px;overflow:hidden">${svg}</div>
-   <div class="lines how">${rows.map((r,n) => `<div class="ln" style="font-weight:400;animation-delay:${.3+n*.35}s"><span class="n">${r[0]}</span><span><b>${r[1]}</b> ${r[2]}</span><span style="color:#4845C9;font-weight:600;white-space:nowrap">${r[3]}</span></div>`).join('')}</div>`);
+   <div class="panel glow how" id="how" style="padding:8px">${svg}</div>
+   <div class="panel"><div class="lines how" style="background:transparent;padding:0">${rows.map((r,n) => `<div class="ln" style="font-weight:400;opacity:0;animation:rise .4s ease ${.3+n*.3}s forwards"><span class="n">${r[0]}</span><span><b>${r[1]}</b> ${r[2]}</span><span style="color:var(--blue);font-weight:600;white-space:nowrap">${r[3]}</span></div>`).join('')}</div></div>
+   <div class="panel glow"><div class="row between"><div><div class="lbl">Arize AX · experiment</div><h2 style="margin-top:4px">Is the agent right? ${sc.passed ?? '–'} of ${sc.case_count ?? '–'} labeled cases pass</h2></div><a class="chip" href="https://app.arize.com" target="_blank">Open in Arize ↗</a></div>
+    <div class="meter"><i style="width:${pct}%"></i></div><div class="note">Run on the real app (${esc(q.model||'')}) · repeat runs: ${esc(trials)} · each case is a traced run in Arize; cases we haven't built yet count as failures.</div>
+    <div>${qrows}</div></div>`);
   wireShell();
   const s = $('#how svg');
   const ag = [...s.querySelectorAll('g')].find(g => g.getAttribute('marker-end'));
-  const order = [0, 6, 1, 2, 3, 5, 7, 4];  // the order a bill takes: PDF in, read, store, check, decide, approve, file, trace
+  const order = [0, 6, 1, 2, 3, 5, 7, 4];
   if (ag) { ag.classList.add('arrows');
     [...ag.querySelectorAll('path')].forEach((p,n) => { const t = order.indexOf(n) * 0.45 + 0.2; p.style.animationDelay = t + 's';
-      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('r','4.5'); dot.setAttribute('fill', n===6 ? '#4845C9' : '#0066CC'); dot.setAttribute('opacity','0');
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('r','4.5'); dot.setAttribute('fill', n===6 ? '#BB9AF7' : '#7AA2F7'); dot.setAttribute('opacity','0');
+      dot.setAttribute('style','filter:drop-shadow(0 0 6px #7AA2F7)');
       const m = document.createElementNS('http://www.w3.org/2000/svg','animateMotion'); m.setAttribute('dur','1.6s'); m.setAttribute('repeatCount','indefinite'); m.setAttribute('begin', (t + 0.9)+'s'); m.setAttribute('path', p.getAttribute('d'));
       const o = document.createElementNS('http://www.w3.org/2000/svg','set'); o.setAttribute('attributeName','opacity'); o.setAttribute('to','1'); o.setAttribute('begin', (t + 0.9)+'s');
       dot.appendChild(m); dot.appendChild(o); s.appendChild(dot); }); }
@@ -364,7 +435,6 @@ async function route() {
   if (!me) { try { const r = await api('/api/me'); me = {...r.user, show_reset: r.show_reset}; } catch { return; } }
   try {
     if (h.startsWith('#/invoice/')) return await viewInvoice(decodeURIComponent(h.slice(10)));
-    if (h === '#/finance') return await viewFinance();
     if (h === '#/how') return await viewHow();
     return await viewInbox();
   } catch (e) { if (e.message !== 'signed out') $('#app').innerHTML = `<main><p class="err">${esc(e.message)}</p><a href="#/inbox">Back</a></main>`; }
