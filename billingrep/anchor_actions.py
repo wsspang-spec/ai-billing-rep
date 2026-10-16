@@ -36,7 +36,7 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
     except Exception as exc:
         return {"status": "failed", "error": _scrub(f"portal API check failed: {type(exc).__name__}: {exc}")}
     if found:
-        return {"status": "submitted", "case_id": found["case_id"], "existing": True}
+        return {"status": "submitted", "case_id": found["case_id"], "existing": True, "portal_url": portal_url}
 
     key = os.environ.get("ANCHORBROWSER_API_KEY")
     if not key:
@@ -83,7 +83,7 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
         confirmed = _existing_case(portal_url, invoice_number)
         if not confirmed or confirmed.get("case_id") != case_id:
             return {"status": "failed", "error": f"case {case_id} not found via portal API", "session_id": session_id}
-        return {"status": "submitted", "case_id": case_id, "existing": False,
+        return {"status": "submitted", "case_id": case_id, "existing": False, "portal_url": portal_url,
                 "session_id": session_id, "live_view_url": live_view_url}
     except Exception as exc:
         return {"status": "failed", "error": _scrub(f"{type(exc).__name__}: {exc}"), "session_id": session_id}

@@ -6,6 +6,7 @@ and a payment instruction only for an explained, non-duplicate invoice.
 """
 
 import datetime as dt
+import re
 import shutil
 from pathlib import Path
 
@@ -46,6 +47,7 @@ def process_invoice(pdf_path: str, source: str = "inbox") -> dict:
 
         # 2. Duplicate control (code, before anything else is written)
         existing = db.one("SELECT * FROM invoice WHERE invoice_number = $n AND account = $a", {"n": number, "a": fields["account"]})
+        number = re.sub(r"[^A-Za-z0-9_-]", "_", number)  # model output becomes a file name: keep it safe
         key = number if not existing else f"{number}-dup{len(db.q('SELECT key FROM invoice WHERE invoice_number = $n', {'n': number}))}"
         files = config.LOCAL / "files"
         files.mkdir(exist_ok=True)
@@ -110,7 +112,14 @@ def process_invoice(pdf_path: str, source: str = "inbox") -> dict:
             cites = [{"source": t["key"], "quote": t["quote"]} for t in in_effect.values()]
             cites += [{"source": f"{number}-L{n}", "quote": "line has no supporting term"} for n in check["unsupported_lines"]]
             guards.append("added citations from the comparison")
-        status = decision["status"]
+        status = decision.get("status")
+        if status not in ("Explained", "Needs review", "Needs clarification"):
+            status = "Needs review"
+            guards.append("model returned an unknown status: set to Needs review")
+        unsupported = [r for r in check["lines"] if r["verdict"] != "matches_term"]
+        if status == "Needs review" and unsupported and all(r["verdict"] == "no_term" for r in unsupported):
+            status = "Needs clarification"
+            guards.append("every open line has no term at all: routed to Needs clarification (ask the vendor)")
         if status == "Explained" and (check["unsupported_lines"] or not check["totals_ok"] or not check["dates_ok"]):
             status = "Needs review"
             guards.append("model said Explained, but a line is not backed by the term in effect: overridden to Needs review")

@@ -111,8 +111,11 @@ async def upload(request: Request) -> dict:
     name = Path(request.headers.get("x-filename", "upload.pdf")).name
     if not name.lower().endswith(".pdf"):
         raise HTTPException(400, "PDF only")
+    body = await request.body()
+    if len(body) > 5_000_000:
+        raise HTTPException(413, "PDF over 5 MB")
     path = UPLOADS / name
-    path.write_bytes(await request.body())
+    path.write_bytes(body)
     _running.add(name)
     threading.Thread(target=_run, args=(path, "upload"), daemon=True).start()
     return {"started": [name]}
@@ -136,13 +139,21 @@ def approve(key: str, request: Request) -> dict:
         raise HTTPException(400, str(e)) from e
 
 
+_sending: set[str] = set()
+
+
 @app.post("/api/invoices/{key}/inquiry")
 def inquiry(key: str, request: Request):
     _user(request)
+    if key in _sending:
+        return JSONResponse({"error": "Already sending this inquiry; wait for the portal confirmation."}, status_code=409)
+    _sending.add(key)
     try:
         return actions.submit_inquiry(key)
     except actions.ApprovalRequired as e:
         return JSONResponse({"blocked": True, "error": str(e)}, status_code=403)
+    finally:
+        _sending.discard(key)
 
 
 @app.get("/api/cfo")
@@ -161,9 +172,11 @@ def reset(request: Request) -> dict:
 
         from billingrep import portal_deploy
 
-        httpx.post(portal_deploy.portal_url().rstrip("/") + "/api/reset", headers={"X-Daytona-Skip-Preview-Warning": "true"}, timeout=10)
-    except Exception:  # noqa: BLE001
-        pass
+        url = config.PORTAL_URL or portal_deploy._read_cache().get("url")  # never deploy inside a request
+        r = httpx.post(url.rstrip("/") + "/api/reset", headers={"X-Daytona-Skip-Preview-Warning": "true"}, timeout=10)
+        out["portal_reset"] = "ok" if r.status_code == 200 else f"failed ({r.status_code})"
+    except Exception as e:  # noqa: BLE001
+        out["portal_reset"] = f"failed ({type(e).__name__})"
     return out
 
 

@@ -80,7 +80,7 @@ const $ = (s, el=document) => el.querySelector(s);
 const money = n => (n<0?'-':'') + '$' + Math.abs(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const signed = n => (n>0?'+':'') + money(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const cls = s => 's-' + String(s||'').replace(/ /g,'-');
+const cls = s => 's-' + String(s||'').replace(/[^A-Za-z]/g,'-');
 const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
 let me = null, timer = null;
 
@@ -124,14 +124,15 @@ async function viewInbox() {
   const needs = inv.filter(i => ['Needs clarification','Needs review','Approved'].includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
   const scheduled = inv.reduce((s,i) => s + (i.payment?.amount||0), 0);
-  const allClear = inv.length && !needs.length && !d.processing.length;
+  const allClear = inv.length && !needs.length && !d.processing.length && !d.errors.length && !inv.some(i => i.status === 'Checking');
+  const waitingVendor = inv.some(i => i.status === 'Awaiting vendor response');
   const rows = inv.map(i => `<div class="item"><div class="who"><b>${esc(i.vendor)} · ${esc(i.account)}</b><div>${esc(i.invoice_number)} · ${fmtDate(i.period_start)} – ${fmtDate(i.period_end)}</div></div>
      <div class="amt"><div>${money(i.total)}</div><div>${i.delta==null?'':signed(i.delta)+' vs last bill'}</div></div>
      <span class="pill ${cls(i.status)}">${i.status==='Checking'?'<span class="spinner"></span>':''}${esc(i.status)}</span>
      <a class="btn ${['Needs clarification','Needs review'].includes(i.status)?'dark':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${['Needs clarification','Needs review'].includes(i.status)?'Review':'Open'}</a></div>`).join('');
   const waiting = d.processing.filter(n => !inv.some(i => i.status==='Checking')).map(n => `<div class="item"><div class="who"><b><span class="spinner"></span>Reading ${esc(n)}</b><div>Claude on AWS Bedrock is reading the PDF…</div></div></div>`).join('');
   $('#app').innerHTML = shell('inbox', `
-   <div class="row between"><div><h1>${allClear?'All caught up.':'October bills'}</h1><p class="sub">${allClear?'Nothing needs you. Payments are scheduled (simulated) and the open question is with the vendor.':'Checked against last month and your own dated records.'}</p></div>
+   <div class="row between"><div><h1>${allClear?'All caught up.':'October bills'}</h1><p class="sub">${allClear?'Nothing needs you. Payments are scheduled (simulated)' + (waitingVendor ? ' and the open question is with the vendor' : '') + '.':'Checked against last month and your own dated records.'}</p></div>
    <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf" hidden></label>
    <button class="btn primary" id="fetch" ${d.inbox_waiting.length?'':'disabled'}>Fetch from inbox${d.inbox_waiting.length?` (${d.inbox_waiting.length})`:''}</button></div></div>
    <div class="drop" id="drop">Drop a PDF here, or fetch from the AP inbox. <span class="chip">Connected: sample inbox folder</span><span class="chip">Gmail: later</span></div>
@@ -194,7 +195,7 @@ async function viewInvoice(key) {
      <div style="background:#fff;border-radius:12px;padding:12px 14px;font-size:14px">“${esc(a.message)}”</div>
      ${a.status==='Submitted' ? '' : `<div class="row"><button class="btn primary" id="approve" ${approved?'disabled':''}>${approved?'Approved by '+esc(a.approved_by):'Approve inquiry'}</button>
        <button class="btn dark" id="send" ${approved?'':'disabled'}>Send to the carrier portal</button>
-       <a href="#" id="tryblock" class="note">Try sending without approval</a></div><div id="actmsg" class="note"></div>`}
+       ${approved?'':'<a href="#" id="tryblock" class="note">Try sending without approval</a>'}</div><div id="actmsg" class="note"></div>`}
      ${a.status==='Submitted' ? `<div class="steps">
        <div class="step"><span class="t">Approved</span><span>${esc(a.approved_by)} · ${esc(a.approved_at)}</span><span class="sp">you</span></div>
        <div class="step"><span class="t">Submitted</span><span>Portal case <b>${esc(a.case_id)}</b>, confirmed on the portal${a.portal?.existing?' (already existed; not resent)':''} · <a href="${esc(a.portal?.portal_url||'')}" target="_blank" rel="noopener">${a.portal?.live_view_url?'':''}synthetic portal</a></span><span class="sp">Anchor Browser</span></div>

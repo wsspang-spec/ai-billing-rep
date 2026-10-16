@@ -3,6 +3,7 @@
 The same script runs locally only if Daytona is unreachable, and the result says where it ran.
 """
 
+import atexit
 import json
 import subprocess
 import sys
@@ -12,6 +13,7 @@ import time
 from billingrep import config
 
 COMPARE = r'''
+import atexit
 import json
 data = json.loads(INPUT)
 inv, prior, terms = data["invoice"], data.get("prior") or {"lines": [], "total": 0}, data["terms"]
@@ -62,8 +64,17 @@ def _get_sandbox():
             import os
 
             d = Daytona(DaytonaConfig(api_key=os.environ["DAYTONA_API_KEY"], api_url="https://app.daytona.io/api"))
-            _sandbox = d.create(CreateSandboxFromSnapshotParams(language="python", ephemeral=True, auto_stop_interval=30))
+            _sandbox = d.create(CreateSandboxFromSnapshotParams(
+                language="python", ephemeral=True, auto_stop_interval=120, labels={"app": "ai-billing-rep", "role": "checks"}))
+            atexit.register(_cleanup, d, _sandbox)  # one sandbox per process, deleted on exit
         return _sandbox
+
+
+def _cleanup(d, sandbox) -> None:
+    try:
+        d.delete(sandbox)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def warm() -> None:
@@ -88,8 +99,14 @@ def compare(invoice: dict, prior: dict | None, terms: dict) -> dict:
     started = time.time()
     if config.has("DAYTONA_API_KEY"):
         try:
-            sb = _get_sandbox()
-            resp = sb.process.code_run(code, timeout=60)
+            try:
+                sb = _get_sandbox()
+                resp = sb.process.code_run(code, timeout=60)
+            except Exception:  # noqa: BLE001 - the sandbox may have auto-stopped: start a fresh one once
+                global _sandbox
+                _sandbox = None
+                sb = _get_sandbox()
+                resp = sb.process.code_run(code, timeout=60)
             result = _parse(resp.result)
             result["_meta"] = {"ran_in": "Daytona sandbox", "sandbox_id": sb.id, "seconds": round(time.time() - started, 1), "exit_code": resp.exit_code}
             return result
