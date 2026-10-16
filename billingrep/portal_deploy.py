@@ -48,7 +48,12 @@ def _read_cache() -> dict:
 
 
 def _delete_cached(daytona) -> None:
-    """Delete the sandbox local-data/portal.json points at, if it still exists, so it never runs beside a new one."""
+    """Delete the sandbox local-data/portal.json points at, if it still exists, so it never runs beside a new one.
+
+    Only "not found" is swallowed: any other error stops the deploy instead of starting a second portal.
+    """
+    from daytona import DaytonaNotFoundError
+
     old_id = _read_cache().get("sandbox_id")
     if not old_id:
         return
@@ -56,8 +61,8 @@ def _delete_cached(daytona) -> None:
         old = daytona.get(old_id)
         if old.labels.get("role") == "synthetic-portal":  # only ever our own portal
             daytona.delete(old, wait=True)
-    except Exception:  # noqa: BLE001 - already gone: nothing to clean up
-        pass
+    except DaytonaNotFoundError:
+        pass  # already gone
 
 
 def deploy() -> str:
@@ -65,7 +70,7 @@ def deploy() -> str:
 
     Deletes the previously cached portal sandbox first. Never auto-stops: delete it after the event.
     """
-    from daytona import CreateSandboxFromSnapshotParams, FileUpload, SessionExecuteRequest
+    from daytona import CreateSandboxFromSnapshotParams
 
     daytona = _client()
     _delete_cached(daytona)
@@ -74,6 +79,22 @@ def deploy() -> str:
         labels={"app": "ai-billing-rep", "role": "synthetic-portal"},
     )
     sandbox = daytona.create(params, timeout=180)
+    try:
+        url = _serve(sandbox)
+    except Exception:
+        try:
+            daytona.delete(sandbox)  # never leave a public, never-stopping sandbox that no cache points at
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    CACHE.write_text(json.dumps({"url": url, "sandbox_id": sandbox.id, "deployed_at": time.time()}, indent=1))
+    return url
+
+
+def _serve(sandbox) -> str:
+    """Upload the portal + inbox PDFs, start it on 8080, wait until it answers, return the URL."""
+    from daytona import FileUpload, SessionExecuteRequest
+
     try:
         base = sandbox.get_work_dir().rstrip("/") + "/portal"
     except Exception:
@@ -99,19 +120,16 @@ def deploy() -> str:
     url = link.url.rstrip("/")
     for _ in range(30):
         if _alive(url, timeout=5):
-            break
+            return url
         time.sleep(2)
-    else:
-        raise RuntimeError(f"portal did not answer at {url}/api/cases (sandbox {sandbox.id})")
-    CACHE.write_text(json.dumps({"url": url, "sandbox_id": sandbox.id, "deployed_at": time.time()}, indent=1))
-    return url
+    raise RuntimeError(f"portal did not answer at {url}/api/cases (sandbox {sandbox.id})")
 
 
 def portal_url() -> str:
     if config.PORTAL_URL:
         return config.PORTAL_URL.rstrip("/")
     cached = _read_cache().get("url")
-    if cached and _alive(cached):
+    if cached and (_alive(cached) or _alive(cached, timeout=20)):  # look twice: a redeploy deletes this portal
         return cached
     return deploy()
 
