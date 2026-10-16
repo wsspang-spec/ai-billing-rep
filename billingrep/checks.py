@@ -3,7 +3,6 @@
 The same script runs locally only if Daytona is unreachable, and the result says where it ran.
 """
 
-import atexit
 import json
 import subprocess
 import sys
@@ -52,11 +51,17 @@ out = {"lines": rows, "sum_of_lines": sum_lines, "billed_total": inv["total"],
 print("RESULT:" + json.dumps(out))
 '''
 
+LABELS = {"app": "ai-billing-rep", "role": "checks"}
 _sandbox = None
 _lock = threading.Lock()
 
 
 def _get_sandbox():
+    """One checks sandbox shared by every server process: reuse the labelled one, create it only if none exists.
+
+    No delete-on-exit: other processes share it, and a killed uvicorn never ran atexit anyway (that leaked
+    one sandbox per restart). It is ephemeral, so Daytona deletes it once it auto-stops after 15 idle minutes.
+    """
     global _sandbox
     with _lock:
         if _sandbox is None:
@@ -64,21 +69,35 @@ def _get_sandbox():
             import os
 
             d = Daytona(DaytonaConfig(api_key=os.environ["DAYTONA_API_KEY"], api_url="https://app.daytona.io/api"))
-            _sandbox = d.create(CreateSandboxFromSnapshotParams(
-                language="python", ephemeral=True, auto_stop_interval=120, labels={"app": "ai-billing-rep", "role": "checks"}))
-            atexit.register(_cleanup, d, _sandbox)  # one sandbox per process, deleted on exit
+            _sandbox = _find(d) or d.create(CreateSandboxFromSnapshotParams(
+                language="python", ephemeral=True, auto_stop_interval=15, labels=LABELS))
         return _sandbox
 
 
-def _cleanup(d, sandbox) -> None:
-    try:
-        d.delete(sandbox)
-    except Exception:  # noqa: BLE001
-        pass
+def _find(d):
+    """The newest labelled checks sandbox that is running, or a stopped one started again; None if there is none."""
+    from daytona import ListSandboxesQuery, SandboxState
+
+    found = sorted(d.list(ListSandboxesQuery(labels=LABELS)), key=lambda s: s.created_at or "", reverse=True)
+    for sb in found:
+        if sb.state in (SandboxState.STARTED, SandboxState.STARTING, SandboxState.CREATING):
+            sb.wait_for_sandbox_start(timeout=60)
+            return sb
+    for sb in found:
+        if sb.state == SandboxState.STOPPED:
+            try:
+                d.start(sb, timeout=60)
+                return sb
+            except Exception:  # noqa: BLE001 - it would not start: delete it so a fresh one replaces it
+                try:
+                    d.delete(sb)
+                except Exception:  # noqa: BLE001
+                    pass
+    return None
 
 
 def warm() -> None:
-    """Create the sandbox early so the first check is fast."""
+    """Find or create the sandbox early so the first check is fast."""
     if config.has("DAYTONA_API_KEY"):
         try:
             _get_sandbox()

@@ -1,7 +1,7 @@
 """Deploy the SYNTHETIC carrier portal (portal/server.py) to a public Daytona sandbox.
 
     uv run python -m billingrep.portal_deploy          # prints the portal URL (deploys if needed)
-    uv run python -m billingrep.portal_deploy --new    # force a fresh sandbox
+    uv run python -m billingrep.portal_deploy --new    # replace it with a fresh sandbox
 
 portal_url() order: config.PORTAL_URL, else the cached URL in local-data/portal.json if it
 still answers, else a new deploy. The sandbox is public so Anchor's cloud browser can reach it.
@@ -47,11 +47,28 @@ def _read_cache() -> dict:
         return {}
 
 
+def _delete_cached(daytona) -> None:
+    """Delete the sandbox local-data/portal.json points at, if it still exists, so it never runs beside a new one."""
+    old_id = _read_cache().get("sandbox_id")
+    if not old_id:
+        return
+    try:
+        old = daytona.get(old_id)
+        if old.labels.get("role") == "synthetic-portal":  # only ever our own portal
+            daytona.delete(old, wait=True)
+    except Exception:  # noqa: BLE001 - already gone: nothing to clean up
+        pass
+
+
 def deploy() -> str:
-    """Create a public python sandbox, upload the portal + inbox PDFs, start it on 8080, return the URL."""
+    """Create a public python sandbox, upload the portal + inbox PDFs, start it on 8080, return the URL.
+
+    Deletes the previously cached portal sandbox first. Never auto-stops: delete it after the event.
+    """
     from daytona import CreateSandboxFromSnapshotParams, FileUpload, SessionExecuteRequest
 
     daytona = _client()
+    _delete_cached(daytona)
     params = CreateSandboxFromSnapshotParams(
         language="python", public=True, auto_stop_interval=0,
         labels={"app": "ai-billing-rep", "role": "synthetic-portal"},
