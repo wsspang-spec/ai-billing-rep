@@ -165,11 +165,21 @@ def portal_pull(request: Request) -> dict:
             _pull.update({"status": "failed", "error": r.get("error")})
             _errors.append(f"Anchor couldn't pull {names[0]} from the portal: {r.get('error', '')[:140]}")
             return
-        _pull.update({"status": "done", "bytes": r.get("bytes")})
+        _pull.update({"status": "done", "bytes": r.get("bytes"), "hold_until": r.get("hold_until"), "live_view_url": r.get("live_view_url"), "session_id": r.get("session_id")})
         _run(Path(r["path"]), "carrier portal")
 
     threading.Thread(target=work, daemon=True).start()
     return _pull
+
+
+@app.post("/api/anchor/release")
+async def anchor_release(request: Request) -> dict:
+    """Done: close the cloud browser a person was using."""
+    _user(request)
+    from billingrep import anchor_actions
+
+    sid = (await request.json()).get("session_id", "")
+    return {"released": anchor_actions.release(sid)}
 
 
 @app.post("/api/upload")
@@ -379,6 +389,26 @@ def audio(name: str, request: Request):
     return FileResponse(path, media_type="audio/mpeg")
 
 
+def _reasoning_for(invoice_key: str, doc_id: str) -> str:
+    """Claude's own words about this document, from the stored decision (Arize has the same in the trace)."""
+    import html
+
+    if not invoice_key:
+        return ""
+    inv = db.one("SELECT key, status, decision FROM invoice WHERE key = $k", {"k": invoice_key})
+    d = (inv or {}).get("decision") or {}
+    ids = {doc_id, f"term-{doc_id}"}
+    said = [f["finding"] for f in d.get("findings", []) if ids & set(f.get("sources", []))][:2]
+    if not said and d.get("summary"):
+        said = [d["summary"]]
+    if not said:
+        return ""
+    body = "".join(f"<span style='display:block;margin-top:4px'>{html.escape(x)}</span>" for x in said)
+    return ("<span style='display:block;margin:14px 0 8px;padding:12px 14px;border-left:3px solid #E08A62;background:#FFF5EE;border-radius:8px;"
+            "font:14px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;color:#3B2A20'><b style='color:#C2410C'>✳ Claude’s reasoning</b>"
+            f" <span style='color:#8A6E5E'>· bill {html.escape(invoice_key)} · {html.escape(inv.get('status', ''))}</span>{body}</span>")
+
+
 DOC_NAMES = {"contract": "Contract", "approved_amendment": "Amendment", "vendor_message": "Vendor message"}
 
 
@@ -406,7 +436,14 @@ def document(doc_id: str, request: Request):
     try:
         from billingrep import docs_render
 
-        return docs_render.render_document(d, request.query_params.get("q", ""))
+        page = docs_render.render_document(d, request.query_params.get("q", ""))
+        inv_key = request.query_params.get("inv", "")
+        back = f"/#/invoice/{inv_key}" if inv_key else "/#/inbox"  # it opens in a new tab: history.back() has nowhere to go
+        page = page.replace("javascript:history.back()", back)
+        note = _reasoning_for(inv_key, doc_id)
+        if note:
+            page = page.replace("</mark>", "</mark>" + note, 1) if "</mark>" in page else page.replace("<body>", "<body>" + note, 1)
+        return HTMLResponse(page)
     except ImportError:
         pass
     import html
