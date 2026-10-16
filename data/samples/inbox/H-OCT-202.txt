@@ -1,15 +1,25 @@
-Harbor Demo Communications (synthetic)
-SYNTHETIC DEMO INVOICE
-All data on this invoice is synthetic demo data.
+Harbor Communications - Managed Network Services
+Remit to: Harbor Communications, PO Box 7720, Boston, MA 02241-7720
 
+Bill to: Atlas Retail, Boston office, Attn: Accounts Payable, 75 Summer Street, Floor 6, Boston, MA 02110
+Account number: ACCT-202
 Invoice number: H-OCT-202
-Account: ACCT-202
-Service period: 2026-10-01 to 2026-10-31
 Invoice date: 2026-10-01
+Billing period: 2026-10-01 to 2026-10-31
 Due date: 2026-10-30
 
-Line | Service | Type | Description | Amount
+ACCOUNT SUMMARY
+Previous balance: $500.00
+Payment received - thank you: -$500.00
+Balance forward: $0.00
+Current charges: $620.00
+TOTAL AMOUNT DUE: $620.00 by 2026-10-30
+
+DETAIL OF CURRENT CHARGES
+Line | Service ID | Type | Description | Amount
 1 | SVC-B | recurring | Monthly connectivity service | $500.00
 2 | SVC-B | unclassified | Interstate Service Adjustment | $120.00
+Total current charges: $620.00
+Taxes, surcharges and fees: included above
 
-Total due: $620.00
+Customer service: 1-800-555-0187 | harborcomms.example/support

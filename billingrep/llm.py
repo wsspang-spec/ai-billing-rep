@@ -28,6 +28,8 @@ INVOICE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
+            "is_invoice": {"type": "boolean", "description": "false if this document is not a telecom/utility invoice"},
+            "not_invoice_reason": {"type": "string", "description": "If is_invoice is false: what the document is, in a few words"},
             "vendor": {"type": "string"},
             "account": {"type": "string", "description": "Account id, e.g. ACCT-A100"},
             "invoice_number": {"type": "string"},
@@ -51,9 +53,14 @@ INVOICE_TOOL = {
                 },
             },
         },
-        "required": ["vendor", "account", "invoice_number", "invoice_date", "period_start", "period_end", "due_date", "total", "lines"],
+        "required": ["is_invoice"],
     },
 }
+
+
+class NotAnInvoice(Exception):
+    pass
+
 
 DECISION_TOOL = {
     "name": "record_decision",
@@ -117,7 +124,7 @@ def extract_invoice(path: Path, use_cache: bool = True) -> dict:
     started = time.time()
     content = [
         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": base64.b64encode(raw).decode()}},
-        {"type": "text", "text": "Read this invoice and call record_invoice with every field and every line. Use YYYY-MM-DD dates and plain numbers."},
+        {"type": "text", "text": "Read this document. If it is an invoice, call record_invoice with is_invoice=true and every field and every charge line (the total is the amount due; previous balance and payments are not charge lines). Use YYYY-MM-DD dates and plain numbers. If it is not an invoice, call record_invoice with is_invoice=false and say what it is."},
     ]
     resp = client().messages.create(
         model=config.MODEL,
@@ -128,7 +135,9 @@ def extract_invoice(path: Path, use_cache: bool = True) -> dict:
     )
     data = _tool_input(resp, "record_invoice")
     if not data:
-        raise RuntimeError("Claude did not return invoice fields")
+        raise NotAnInvoice("Claude found no invoice fields in it")
+    if data.get("is_invoice") is False or not data.get("lines") or "total" not in data:
+        raise NotAnInvoice(data.get("not_invoice_reason") or "no invoice number, total or charge lines found")
     data["_meta"] = {"model": config.MODEL, "seconds": round(time.time() - started, 1), "sha": sha, "cached": False, "via": "Claude on AWS Bedrock"}
     cached.write_text(json.dumps(data))
     return data

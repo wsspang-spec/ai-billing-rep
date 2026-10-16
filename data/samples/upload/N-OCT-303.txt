@@ -1,0 +1,24 @@
+Northstar Telecom - Business Fiber & Voice
+Remit to: Northstar Telecom, PO Box 4410, Hartford, CT 06101-4410
+
+Bill to: Atlas Retail, Brooklyn office, Attn: Accounts Payable, 330 Jay Street, Unit 3B, Brooklyn, NY 11201
+Account number: ACCT-303
+Invoice number: N-OCT-303
+Invoice date: 2026-10-01
+Billing period: 2026-10-01 to 2026-10-31
+Due date: 2026-10-30
+
+ACCOUNT SUMMARY
+Previous balance: $300.00
+Payment received - thank you: -$300.00
+Balance forward: $0.00
+Current charges: $300.00
+TOTAL AMOUNT DUE: $300.00 by 2026-10-30
+
+DETAIL OF CURRENT CHARGES
+Line | Service ID | Type | Description | Amount
+1 | SVC-C | recurring | Monthly connectivity service | $300.00
+Total current charges: $300.00
+Taxes, surcharges and fees: included above
+
+Customer service: 1-800-555-0142 | northstartelecom.example/business
