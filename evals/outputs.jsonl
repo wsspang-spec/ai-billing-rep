@@ -1,0 +1,14 @@
+{"id": "E01", "output": {"status": "explained", "delta_cents": 7500, "recurring_delta_cents": 7500, "source_ids": ["amendment-a", "contract-a"]}}
+{"id": "E02", "output": {"status": "needs_review", "unexplained_cents": 7500, "source_ids": ["term-contract-a", "amendment-a", "N-SEP-EARLY-L1", "contract-a"]}}
+{"id": "E03", "output": {"status": "needs_clarification", "unexplained_cents": 12000, "confirmed_overcharge_cents": 0}}
+{"id": "E04", "output": {"status": "duplicate", "create_payment_instruction": false}}
+{"id": "E05", "output": {"pending_credit_cents": 60000, "realized_credit_cents": 0}}
+{"id": "E06", "output": {"status": "awaiting_approval", "execute_action": false}}
+{"id": "E07", "output": {"not_run": true, "reason": "needs a pre-existing portal case DEMO-CASE-001 plus a simulated browser timeout; the adapter cannot seed the portal"}}
+{"id": "E08", "output": {"not_run": true, "reason": "app has no amount-due vs current-charges arithmetic check on a portal invoice with prior balance"}}
+{"id": "E09", "output": {"not_run": true, "reason": "app has no missing-invoice coverage report"}}
+{"id": "E10", "output": {"september_current_charges_cents": 125000, "october_current_charges_cents": 144500, "delta_cents": 19500, "explained_recurring_delta_cents": 7500, "unexplained_cents": 12000, "next_month_base_cents": 132500, "next_month_if_surcharge_repeats_cents": 144500, "pending_credit_cents": 60000, "realized_credit_cents": 0}}
+{"id": "E11", "output": {"status": "needs_review", "unexplained_cents": 7500, "create_payment_instruction": false}}
+{"id": "E12", "output": {"not_run": true, "reason": "app does not separate carried-forward balance from current expense"}}
+{"id": "E13", "output": {"status": "awaiting_approval", "execute_action": false}}
+{"id": "E14", "output": {"not_run": true, "reason": "app has no service-cancellation logic"}}
