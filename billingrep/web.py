@@ -66,8 +66,33 @@ def _summary(inv: dict) -> dict:
     d = inv.get("decision") or {}
     steps = [e["step"] for e in db.q("SELECT step, at FROM event WHERE invoice = $k ORDER BY at ASC", {"k": inv["key"]})]
     return {k: inv.get(k) for k in ("key", "invoice_number", "account", "vendor", "period_start", "period_end", "total", "delta", "status", "due_date")} | {
-        "summary": d.get("summary"), "steps": steps,
+        "summary": d.get("summary"), "steps": steps, "why": _why(inv),
         "payment": db.one("SELECT amount, scheduled_on, status FROM payment WHERE invoice = $k", {"k": inv["key"]})}
+
+
+def _why(inv: dict) -> str:
+    """One line a rep can act on, shown under the status on the dashboard."""
+    st, c = inv.get("status"), inv.get("checks") or {}
+    open_lines = [l for l in c.get("lines", []) if l.get("verdict") != "matches_term"]
+    used = (inv.get("terms_used") or [{}])[0]
+    if st == "Explained":
+        if inv.get("delta"):
+            letter = str(used.get("source", "")).rsplit("-", 1)[-1].upper()
+            return f"Increase checked: matches {'Amendment' if 'amendment' in str(used.get('source')) else 'Contract'} {letter} from {used.get('valid_from', '')}"
+        return "Same as last month; matches the contract"
+    if st == "Duplicate":
+        return f"Already received as {inv.get('duplicate_of')}; not paid twice"
+    if st == "Needs clarification" and open_lines:
+        return f"“{open_lines[0]['description']}” (${open_lines[0]['amount']:,.2f}) isn’t in the contract"
+    if st == "Needs review" and open_lines:
+        l = open_lines[0]
+        return f"Billed ${l['amount']:,.2f}; the price for that period was ${(l.get('expected') or 0):,.2f}"
+    if st == "Approved":
+        return "Approved; ready to send to the vendor"
+    if st == "Awaiting vendor response":
+        a = db.one("SELECT case_id FROM action WHERE invoice = $k", {"k": inv["key"]}) or {}
+        return f"Asked on the vendor portal (case {a.get('case_id', '')}); rest scheduled"
+    return ""
 
 
 @app.get("/api/invoices")
@@ -179,6 +204,30 @@ def clear_errors(request: Request) -> dict:
     return {"ok": True}
 
 
+@app.get("/samples/next")
+def sample_next(request: Request):
+    """A fresh bill for the drag-and-drop demo: new invoice number every time, rotating outcomes."""
+    _user(request)
+    from billingrep import samples
+
+    path = samples.next_sample()
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
+
+
+@app.get("/api/quality")
+def quality(request: Request) -> dict:
+    """The latest eval run (the team's labeled cases, scored against the real app and logged to Arize)."""
+    _user(request)
+    import json
+
+    f = config.ROOT / "eval" / "results.json"
+    if not f.exists():
+        return {"cases": []}
+    r = json.loads(f.read_text())
+    return {"run_at": r.get("run_at"), "model": r.get("model"), "score": r.get("score"), "trials": r.get("trials"),
+            "arize": r.get("arize"), "cases": [{k: v for k, v in c.items() if k not in ("inputs", "output")} for c in r.get("cases", [])]}
+
+
 @app.get("/samples/{name}")
 def sample(name: str, request: Request):
     """Extra bills for the drag-and-drop demo."""
@@ -195,6 +244,12 @@ def reset(request: Request) -> dict:
     out = db.reset_demo()
     _errors.clear()
     threading.Thread(target=_reset_portal, daemon=True).start()  # don't make the user wait on the portal
+    try:
+        from billingrep import samples
+
+        samples.reset_counter()
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
@@ -248,9 +303,19 @@ def document(doc_id: str, request: Request):
 
         return RedirectResponse(f"/files/{doc_id.rsplit('-L', 1)[0]}.pdf")
     doc_id = doc_id.removeprefix("term-")
+    if db.one("SELECT key FROM invoice WHERE key = $k", {"k": doc_id}):  # a cited invoice → its PDF
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(f"/files/{doc_id}.pdf")
     d = db.one("SELECT * FROM document WHERE key = $k", {"k": doc_id})
     if not d:
         raise HTTPException(404, "no such document")
+    try:
+        from billingrep import docs_render
+
+        return docs_render.render_document(d, request.query_params.get("q", ""))
+    except ImportError:
+        pass
     import html
 
     rows = "".join(f"<tr><th>{html.escape(k)}</th><td>{html.escape(str(v))}</td></tr>" for k, v in
