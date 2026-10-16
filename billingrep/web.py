@@ -100,13 +100,14 @@ def _why(inv: dict) -> str:
 @app.get("/api/invoices")
 def invoices(request: Request) -> dict:
     _user(request)
-    rows = db.q("SELECT * FROM invoice WHERE run = true ORDER BY received_at ASC")
+    rows = db.q("SELECT * FROM invoice WHERE run = true AND dismissed != true ORDER BY received_at ASC")
+    dismissed = len(db.q("SELECT key FROM invoice WHERE run = true AND dismissed = true"))
     order = {"Needs clarification": 0, "Needs review": 1, "Approved": 2, "Checking": 3, "Awaiting vendor response": 4, "Explained": 5, "Duplicate": 6}
     rows.sort(key=lambda r: order.get(r["status"], 9))
     pending = sorted(p.name for p in INBOX.glob("*.pdf") if p.name not in PORTAL_ONLY and not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name}))
     portal_waiting = sorted(n for n in PORTAL_ONLY if not db.one("SELECT key FROM invoice WHERE file_name = $f", {"f": n}))
     return {"invoices": [_summary(r) for r in rows], "processing": sorted(_running), "inbox_waiting": pending,
-            "portal_waiting": portal_waiting, "pull": _pull, "errors": _errors[-3:]}
+            "portal_waiting": portal_waiting, "pull": _pull, "errors": _errors[-3:], "dismissed": dismissed}
 
 
 def _run(path: Path, source: str) -> None:
@@ -206,6 +207,18 @@ def invoice(key: str, request: Request) -> dict:
     if not d:
         raise HTTPException(404, "no such invoice")
     return d
+
+
+@app.post("/api/invoices/{key}/dismiss")
+def dismiss(key: str, request: Request) -> dict:
+    """Hide a handled bill (e.g. a skipped duplicate) from the dashboard. Nothing is deleted."""
+    _user(request)
+    inv = db.one("SELECT status FROM invoice WHERE key = $k", {"k": key})
+    if not inv or inv["status"] not in ("Duplicate", "Explained", "Awaiting vendor response"):
+        raise HTTPException(400, "only handled bills can be dismissed")
+    db.q("UPDATE invoice SET dismissed = true WHERE key = $k", {"k": key})
+    db.log_event(key, "Dismissed", "Hidden from the dashboard by the AP specialist (kept in the record)", "you")
+    return {"ok": True}
 
 
 @app.post("/api/invoices/{key}/approve")
@@ -439,6 +452,7 @@ def document(doc_id: str, request: Request):
         page = docs_render.render_document(d, request.query_params.get("q", ""))
         inv_key = request.query_params.get("inv", "")
         back = f"/#/invoice/{inv_key}" if inv_key else "/#/inbox"  # it opens in a new tab: history.back() has nowhere to go
+        page = page.replace('href="javascript:history.back()"', f'href="{back}" onclick="window.close(); setTimeout(function(){{location.href=\'{back}\'}}, 200); return false;"')
         page = page.replace("javascript:history.back()", back)
         note = _reasoning_for(inv_key, doc_id)
         if note:
