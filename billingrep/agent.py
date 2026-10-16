@@ -54,7 +54,10 @@ def process_invoice(pdf_path: str, source: str = "inbox") -> dict:
         shutil.copy(path, files / f"{key}.pdf")
         base = fields | {"key": key, "file": f"/files/{key}.pdf", "source": source, "run": True, "trace_id": trace_id,
                          "read": meta, "received_at": dt.datetime.now().isoformat(timespec="seconds")}
-        db.log_event(key, "Received", f"{path.name} from the {source}", "FastAPI")
+        if source == "carrier portal":
+            db.log_event(key, "Received", f"{path.name} pulled from Harbor's portal by Anchor's cloud browser", "Anchor Browser")
+        else:
+            db.log_event(key, "Received", f"{path.name} from the {source}", "FastAPI")
         db.log_event(key, "Read", f"{len(fields['lines'])} lines, total ${fields['total']:,.2f}" + (" (cached read)" if meta.get("cached") else f" in {meta.get('seconds')}s"), "Claude on AWS Bedrock")
         if existing:
             decision = {"status": "Duplicate", "summary": f"Same invoice number as {existing['key']}, already received. No second payment instruction was created.",

@@ -9,6 +9,7 @@ A session's cdp_url carries the API key: it is never returned, logged or put in 
 
 import os
 import re
+from pathlib import Path
 
 import httpx
 
@@ -97,6 +98,81 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
             return {"status": "failed", "error": f"case {case_id} not found via portal API", "session_id": session_id}
         return {"status": "submitted", "case_id": case_id, "existing": False, "portal_url": portal_url,
                 "session_id": session_id, "live_view_url": live_view_url}
+    except Exception as exc:
+        return {"status": "failed", "error": _scrub(f"{type(exc).__name__}: {exc}"), "session_id": session_id}
+    finally:
+        if session_id:
+            try:
+                client.sessions.delete_session(session_id)
+            except Exception:
+                pass
+
+
+def fetch_invoice(portal_url: str, invoice_number: str, out_dir: Path, on_session=None) -> dict:
+    """Anchor's cloud browser signs in to the carrier portal, opens the invoice list and downloads
+    the PDF for invoice_number (the bytes are fetched inside the cloud browser). Saved to out_dir."""
+    portal_url = portal_url.rstrip("/")
+    key = os.environ.get("ANCHORBROWSER_API_KEY")
+    if not key:
+        return {"status": "failed", "error": "ANCHORBROWSER_API_KEY is not set"}
+    from anchorbrowser import Anchorbrowser
+    from playwright.sync_api import sync_playwright
+
+    client = Anchorbrowser(api_key=key)
+    session_id = None
+    try:
+        data = client.sessions.create_session(
+            session={"timeout": {"max_duration": MAX_MINUTES, "idle_timeout": IDLE_MINUTES}}
+        ).data
+        if data is None or not data.id or not data.cdp_url:
+            return {"status": "failed", "error": "Anchor returned no session"}
+        session_id = data.id
+        if on_session:
+            try:
+                on_session(data.live_view_url, session_id)
+            except Exception:
+                pass
+        with sync_playwright() as pw:
+            browser = pw.chromium.connect_over_cdp(data.cdp_url, timeout=60_000)
+            try:
+                ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                page.set_extra_http_headers({"X-Daytona-Skip-Preview-Warning": "true"})
+                page.set_default_timeout(30_000)
+                page.wait_for_timeout(1500)
+                page.goto(f"{portal_url}/", wait_until="domcontentloaded")
+                page.locator("#username").press_sequentially("demo", delay=60)
+                page.locator("#password").press_sequentially("demo", delay=60)
+                page.wait_for_timeout(400)
+                page.click("#login")
+                page.wait_for_url(re.compile(r"/invoices"))
+                page.wait_for_timeout(1500)
+                href = f"/files/{invoice_number}.pdf"
+                b64 = page.evaluate(
+                    """async (u) => { const r = await fetch(u, {credentials: 'include', headers: {'X-Daytona-Skip-Preview-Warning': 'true'}});
+                       if (!r.ok) throw new Error('HTTP ' + r.status);
+                       const b = new Uint8Array(await r.arrayBuffer()); let s = '';
+                       for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+                       return btoa(s); }""",
+                    href,
+                )
+                try:  # point at the bill it just pulled (a PDF link would start a download, not display)
+                    page.evaluate("""(h) => { const a = [...document.querySelectorAll('a')].find(x => x.getAttribute('href') === h);
+                        if (a) { const tr = a.closest('tr') || a; tr.style.outline = '3px solid #7c5cff'; tr.style.background = '#efeaff'; tr.scrollIntoView({block: 'center'}); } }""", href)
+                except Exception:
+                    pass
+                page.wait_for_timeout(2500)
+            finally:
+                browser.close()
+        import base64
+
+        raw = base64.b64decode(b64)
+        if not raw.startswith(b"%PDF"):
+            return {"status": "failed", "error": "the portal did not return a PDF", "session_id": session_id}
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{invoice_number}.pdf"
+        path.write_bytes(raw)
+        return {"status": "ok", "path": str(path), "bytes": len(raw), "session_id": session_id}
     except Exception as exc:
         return {"status": "failed", "error": _scrub(f"{type(exc).__name__}: {exc}"), "session_id": session_id}
     finally:

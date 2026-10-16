@@ -16,6 +16,8 @@ UPLOADS = config.LOCAL / "uploads"
 UPLOADS.mkdir(exist_ok=True)
 COOKIE = "br_session"
 _running: set[str] = set()
+PORTAL_ONLY = {"H-OCT-202.pdf"}  # Harbor's bill lives on Harbor's portal; Anchor pulls it
+_pull: dict = {"status": "idle"}
 _errors: list[str] = []
 
 
@@ -101,8 +103,10 @@ def invoices(request: Request) -> dict:
     rows = db.q("SELECT * FROM invoice WHERE run = true ORDER BY received_at ASC")
     order = {"Needs clarification": 0, "Needs review": 1, "Approved": 2, "Checking": 3, "Awaiting vendor response": 4, "Explained": 5, "Duplicate": 6}
     rows.sort(key=lambda r: order.get(r["status"], 9))
-    pending = sorted(p.name for p in INBOX.glob("*.pdf") if not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name}))
-    return {"invoices": [_summary(r) for r in rows], "processing": sorted(_running), "inbox_waiting": pending, "errors": _errors[-3:]}
+    pending = sorted(p.name for p in INBOX.glob("*.pdf") if p.name not in PORTAL_ONLY and not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name}))
+    portal_waiting = sorted(n for n in PORTAL_ONLY if not db.one("SELECT key FROM invoice WHERE file_name = $f", {"f": n}))
+    return {"invoices": [_summary(r) for r in rows], "processing": sorted(_running), "inbox_waiting": pending,
+            "portal_waiting": portal_waiting, "pull": _pull, "errors": _errors[-3:]}
 
 
 def _run(path: Path, source: str) -> None:
@@ -123,7 +127,7 @@ def fetch(request: Request) -> dict:
     """Read every invoice waiting in the sample AP inbox (Gmail later), one after another, in the background."""
     _user(request)
     waiting = [p for p in sorted(INBOX.glob("*.pdf"))
-               if p.name not in _running and not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name})]
+               if p.name not in PORTAL_ONLY and p.name not in _running and not db.one("SELECT key FROM invoice WHERE source = 'inbox' AND file_name = $f", {"f": p.name})]
 
     def work() -> None:
         for p in waiting:
@@ -133,6 +137,39 @@ def fetch(request: Request) -> dict:
         _running.add(p.name)
     threading.Thread(target=work, daemon=True).start()
     return {"started": [p.name for p in waiting]}
+
+
+@app.post("/api/portal/pull")
+def portal_pull(request: Request) -> dict:
+    """Anchor's cloud browser signs in to Harbor's portal and downloads the October bill; then the agent checks it."""
+    _user(request)
+    if _pull.get("status") == "pulling":
+        return _pull
+    names = [n for n in sorted(PORTAL_ONLY) if not db.one("SELECT key FROM invoice WHERE file_name = $f", {"f": n})]
+    if not names:
+        return {"status": "nothing to pull"}
+    _pull.clear()
+    _pull.update({"status": "pulling", "file": names[0], "live_view_url": None})
+
+    def work() -> None:
+        from billingrep import anchor_actions
+
+        def live(url: str, session_id: str) -> None:
+            _pull.update({"live_view_url": url, "session_id": session_id})
+
+        try:
+            r = anchor_actions.fetch_invoice(_portal_base(), names[0].removesuffix(".pdf"), config.LOCAL / "portal-pulls", on_session=live)
+        except Exception as e:  # noqa: BLE001
+            r = {"status": "failed", "error": str(e)[:200]}
+        if r.get("status") != "ok":
+            _pull.update({"status": "failed", "error": r.get("error")})
+            _errors.append(f"Anchor couldn't pull {names[0]} from the portal: {r.get('error', '')[:140]}")
+            return
+        _pull.update({"status": "done", "bytes": r.get("bytes")})
+        _run(Path(r["path"]), "carrier portal")
+
+    threading.Thread(target=work, daemon=True).start()
+    return _pull
 
 
 @app.post("/api/upload")
@@ -262,7 +299,7 @@ def stats(request: Request) -> dict:
             "claude": {"reads": n("Read"), "decisions": n("Decided")},
             "surreal": {"recalls": n("Recalled"), "users": 1},
             "daytona": {"checks": sum(1 for e in ev if e["step"] == "Compared" and "Daytona" in (e.get("sponsor") or "")), "portal": 1},
-            "anchor": {"filed": n("Submitted")},
+            "anchor": {"filed": n("Submitted"), "pulled": sum(1 for e in ev if e["step"] == "Received" and "Anchor" in (e.get("sponsor") or ""))},
             "arize": {"traces": len(per) , "eval_passed": score.get("passed"), "eval_total": score.get("case_count")},
         },
     }
@@ -297,6 +334,8 @@ def reset(request: Request) -> dict:
     _user(request)
     out = db.reset_demo()
     _errors.clear()
+    _pull.clear()
+    _pull.update({"status": "idle"})
     threading.Thread(target=_reset_portal, daemon=True).start()  # don't make the user wait on the portal
     try:
         from billingrep import samples
