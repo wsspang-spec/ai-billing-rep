@@ -21,20 +21,23 @@ def setup() -> bool:
     from openinference.instrumentation.anthropic import AnthropicInstrumentor
 
     _provider = register(
-        space_id=os.environ["ARIZE_SPACE_ID"], api_key=os.environ["ARIZE_API_KEY"], project_name=config.ARIZE_PROJECT
+        space_id=os.environ["ARIZE_SPACE_ID"], api_key=os.environ["ARIZE_API_KEY"], project_name=config.ARIZE_PROJECT,
+        set_global_tracer_provider=False,  # only our spans + Claude calls; SDK HTTP noise stays out of Arize
     )
     AnthropicInstrumentor().instrument(tracer_provider=_provider)
     return True
 
 
 def tracer():
-    return trace.get_tracer("billingrep")
+    return (_provider or trace).get_tracer("billingrep")
 
 
 @contextlib.contextmanager
 def span(name: str, kind: str = "CHAIN", **attrs: Any) -> Iterator[Any]:
     with tracer().start_as_current_span(name) as s:
         s.set_attribute("openinference.span.kind", kind)
+        if attrs:
+            s.set_attribute("input.value", json.dumps(attrs, default=str))
         for k, v in attrs.items():
             s.set_attribute(k, v if isinstance(v, (str, int, float, bool)) else json.dumps(v, default=str))
         yield s

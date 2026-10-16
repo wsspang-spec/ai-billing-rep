@@ -47,11 +47,11 @@ nav a{color:#fff;margin-left:14px} .note{color:#667;font-size:13px} .case{font-s
 
 
 def page(title: str, body: str, nav: bool = True) -> bytes:
-    links = '<nav><a href="/invoices">Invoices</a><a href="/inquiry">Billing inquiry</a><a href="/logout">Log out</a></nav>' if nav else ""
+    links = '<nav><a href="/invoices">Invoices</a><a href="/inquiry">Billing inquiry</a><a href="/cases">My cases</a><a href="/logout">Log out</a></nav>' if nav else ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)} - Harbor Demo Communications (synthetic)</title><style>{CSS}</style></head>
-<body><header><div><b>Harbor Demo Communications (synthetic)</b> <span class="tag">Synthetic demo portal</span></div>{links}</header>
-<main>{body}<p class="note">Synthetic demo portal. No real accounts, invoices or payments.</p></main></body></html>""".encode()
+<title>{html.escape(title)} - Harbor Communications · Customer portal</title><style>{CSS}</style></head>
+<body><header><div><b>Harbor Communications</b> · Customer portal</div>{links}</header>
+<main>{body}<p class="note">Harbor Communications · Customer service 1-800-555-0187</p></main></body></html>""".encode()
 
 
 def load_cases() -> list:
@@ -129,7 +129,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.redirect("/invoices")
             err = '<p style="color:#b00020">Wrong user or password.</p>' if q.get("error") else ""
             nxt = html.escape(q.get("next", "/invoices"))
-            return self.send(200, page("Sign in", f"""<h2>Sign in</h2><p class="note">Synthetic demo portal: user <code>demo</code>, password <code>demo</code>.</p>{err}
+            return self.send(200, page("Sign in", f"""<h2>Sign in</h2><p class="note">User <code>demo</code>, password <code>demo</code>.</p>{err}
 <form method="post" action="/login"><input type="hidden" name="next" value="{nxt}">
 <label for="username">User</label><input id="username" name="username" autocomplete="off">
 <label for="password">Password</label><input id="password" name="password" type="password">
@@ -147,6 +147,16 @@ class Handler(BaseHTTPRequestHandler):
                          f"<td>{inv['due_date']}</td><td>${inv['total']:,.2f}</td><td>{link}</td>"
                          f"<td><a href=\"/inquiry?invoice_number={inv['invoice_number']}&account={inv['account']}\">Dispute</a></td></tr>")
             return self.send(200, page("Invoices", f"""<h2>Invoices</h2><table><tr><th>Invoice</th><th>Account</th><th>Period</th><th>Due</th><th>Total</th><th>File</th><th></th></tr>{rows}</table>"""))
+        if p == "/cases":
+            rows = ""
+            for c in sorted(load_cases(), key=lambda c: c.get("created_at", ""), reverse=True):
+                rows += (f"<tr><td class=\"case-id\">{html.escape(str(c.get('case_id', '')))}</td><td>{html.escape(str(c.get('invoice_number', '')))}</td>"
+                         f"<td>{html.escape(str(c.get('account', '')))}</td><td>${float(c.get('amount') or 0):,.2f}</td>"
+                         f"<td>{html.escape(str(c.get('status') or 'Open'))}</td><td>{html.escape(str(c.get('created_at', '')))}</td></tr>")
+            if not rows:
+                rows = '<tr><td colspan="6" class="note">No cases yet.</td></tr>'
+            return self.send(200, page("My cases", f"""<h2>My cases</h2><table id="cases"><tr><th>Case</th><th>Invoice</th><th>Account</th><th>Amount</th><th>Status</th><th>Created</th></tr>{rows}</table>
+<p><a href="/inquiry">Open a new billing inquiry</a></p>"""))
         if p.startswith("/files/"):
             name = Path(p[len("/files/"):]).name
             f = FILES / name
@@ -155,7 +165,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, f.read_bytes(), "application/pdf" if name.endswith(".pdf") else "text/plain; charset=utf-8")
         if p == "/inquiry":
             v = {k: html.escape(q.get(k, "")) for k in ("account", "invoice_number", "amount")}
-            return self.send(200, page("Billing inquiry", f"""<h2>Billing inquiry</h2><p class="note">Open a dispute case on a synthetic invoice.</p>
+            return self.send(200, page("Billing inquiry", f"""<h2>Billing inquiry</h2><p class="note">Open a dispute case on an invoice.</p>
 <form method="post" action="/inquiry">
 <label for="account">Account</label><input id="account" name="account" value="{v['account']}">
 <label for="invoice_number">Invoice number</label><input id="invoice_number" name="invoice_number" value="{v['invoice_number']}">
@@ -201,14 +211,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, page("Inquiry received", f"""<h2>Inquiry received</h2>
 <p>Your case number is <span id="case-id" class="case">{case['case_id']}</span></p>
 <table><tr><th>Account</th><td>{html.escape(case['account'])}</td></tr><tr><th>Invoice</th><td>{html.escape(case['invoice_number'])}</td></tr>
-<tr><th>Amount</th><td>${amount:,.2f}</td></tr><tr><th>Status</th><td>Open</td></tr></table>"""))
+<tr><th>Amount</th><td>${amount:,.2f}</td></tr><tr><th>Status</th><td>Open</td></tr></table>
+<p><a href="/cases">View all my cases</a></p>"""))
         return self.send(404, page("Not found", "<h2>Page not found</h2>"))
 
 
 def main():
     port = int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"Harbor Demo Communications (synthetic) portal on :{port}", flush=True)
+    print(f"Harbor Communications customer portal on :{port}", flush=True)
     srv.serve_forever()
 
 
