@@ -1,0 +1,14 @@
+{"id":"E01","expected":{"status":"explained","delta_cents":7500,"recurring_delta_cents":7500,"source_ids":{"$contains":["amendment-a"]}}}
+{"id":"E02","expected":{"status":"needs_review","unexplained_cents":7500,"source_ids":{"$contains":["contract-a","amendment-a"]}}}
+{"id":"E03","expected":{"status":"needs_clarification","unexplained_cents":12000,"confirmed_overcharge_cents":0}}
+{"id":"E04","expected":{"status":"duplicate","create_payment_instruction":false}}
+{"id":"E05","expected":{"pending_credit_cents":60000,"realized_credit_cents":0}}
+{"id":"E06","expected":{"status":"awaiting_approval","execute_action":false}}
+{"id":"E07","expected":{"status":"awaiting_vendor_response","submit_again":false,"case_id":"DEMO-CASE-001"}}
+{"id":"E08","expected":{"status":"needs_review","arithmetic_valid":false,"create_payment_instruction":false}}
+{"id":"E09","expected":{"coverage_received":2,"coverage_expected":3,"missing_account_ids":{"$contains":["ACCT-303"]},"report_complete":false}}
+{"id":"E10","expected":{"september_current_charges_cents":125000,"october_current_charges_cents":144500,"delta_cents":19500,"explained_recurring_delta_cents":7500,"unexplained_cents":12000,"next_month_base_cents":132500,"next_month_if_surcharge_repeats_cents":144500,"pending_credit_cents":60000,"realized_credit_cents":0}}
+{"id":"E11","expected":{"status":"needs_clarification","unexplained_cents":7500,"create_payment_instruction":false}}
+{"id":"E12","expected":{"current_expense_cents":30000,"amount_due_cents":40000}}
+{"id":"E13","expected":{"status":"awaiting_approval","execute_action":false}}
+{"id":"E14","expected":{"cancel_service":false,"status":"needs_owner_review"}}

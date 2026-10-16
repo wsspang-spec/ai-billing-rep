@@ -4,7 +4,7 @@ An AI telecom billing assistant for teams managing invoices across carriers and 
 
 ## Project status
 
-Hackathon planning scaffold. This repository currently contains documentation, not a working application. Integrations below are planned; mark them implemented only after end-to-end verification. No production payments or carrier actions are implemented.
+Demo and evaluation scaffold: six synthetic invoices, five supporting records, printable HTML sources, 14 evaluation cases, an offline scorer, and submission drafts. Start with [PACK_START_HERE.md](PACK_START_HERE.md). This is not yet a sponsor-integrated application. Integrations below are planned; mark them implemented only after end-to-end verification. No production payments or carrier actions are implemented.
 
 ## Demo
 
