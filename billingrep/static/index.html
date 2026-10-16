@@ -106,11 +106,11 @@ function viewLogin(err='') {
   $('#app').innerHTML = `<div class="login"><form id="f">
    <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px"><div class="logo" style="width:44px;height:44px;border-radius:12px;font-size:16px">BR</div>
    <h1 style="font-size:26px;margin-top:8px">Billing Rep</h1><p class="sub" style="margin:0;font-size:15px">Every bill checked before you pay it.</p></div>
-   <label>Email<input name="email" type="email" value="maria@harbor.example" autocomplete="username"></label>
+   <label>Email<input name="email" type="email" value="maria@atlas.example" autocomplete="username"></label>
    <label>Password<input name="password" type="password" value="demo-password" autocomplete="current-password"></label>
    ${err?`<div class="err" style="font-size:14px">${esc(err)}</div>`:''}
    <button class="btn primary" style="min-height:48px">Sign in</button>
-   <p class="note" style="text-align:center;margin:0">Harbor Retail Group · synthetic demo account<br>Password checked by SurrealDB <code>crypto::argon2</code></p></form></div>`;
+   <p class="note" style="text-align:center;margin:0">Atlas Demo Retail · synthetic demo account<br>Password checked by SurrealDB <code>crypto::argon2</code></p></form></div>`;
   $('#f').onsubmit = async e => {
     e.preventDefault(); const f = new FormData(e.target);
     try { const r = await api('/api/login',{method:'POST',body:JSON.stringify({email:f.get('email'),password:f.get('password')})}); me = r.user; location.hash = '#/inbox'; }
@@ -131,7 +131,7 @@ async function viewInbox() {
      <a class="btn ${['Needs clarification','Needs review'].includes(i.status)?'dark':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${['Needs clarification','Needs review'].includes(i.status)?'Review':'Open'}</a></div>`).join('');
   const waiting = d.processing.filter(n => !inv.some(i => i.status==='Checking')).map(n => `<div class="item"><div class="who"><b><span class="spinner"></span>Reading ${esc(n)}</b><div>Claude on AWS Bedrock is reading the PDF…</div></div></div>`).join('');
   $('#app').innerHTML = shell('inbox', `
-   <div class="row between"><div><h1>${allClear?'All caught up.':'October bills'}</h1><p class="sub">${allClear?'Nothing needs you. Payments are scheduled and the open question is with the vendor.':'Checked against last month and your own dated records.'}</p></div>
+   <div class="row between"><div><h1>${allClear?'All caught up.':'October bills'}</h1><p class="sub">${allClear?'Nothing needs you. Payments are scheduled (simulated) and the open question is with the vendor.':'Checked against last month and your own dated records.'}</p></div>
    <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf" hidden></label>
    <button class="btn primary" id="fetch" ${d.inbox_waiting.length?'':'disabled'}>Fetch from inbox${d.inbox_waiting.length?` (${d.inbox_waiting.length})`:''}</button></div></div>
    <div class="drop" id="drop">Drop a PDF here, or fetch from the AP inbox. <span class="chip">Connected: sample inbox folder</span><span class="chip">Gmail: later</span></div>
@@ -159,7 +159,7 @@ function headline(i) {
   if (s === 'Needs clarification') return `${money(i.checks?.unsupported_amount)} that nothing explains.`;
   if (s === 'Needs review') return `Billed at a price not in effect for this period.`;
   if (s === 'Approved') return `Approved. Ready to send the inquiry.`;
-  if (s === 'Awaiting vendor response') return `Inquiry filed. Waiting on Northwind.`;
+  if (s === 'Awaiting vendor response') return `Inquiry filed. Waiting on the vendor.`;
   if (s === 'Duplicate') return `This bill was already received.`;
   return 'Checking…';
 }
@@ -190,10 +190,10 @@ async function viewInvoice(key) {
   else if (a) {
     const approved = ['Approved','Submitted','Failed'].includes(a.status);
     act = `<div class="box soft"><h2>The agent proposes</h2>
-     <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px"><li>Schedule the undisputed <b>${money(a.undisputed)}</b> (simulated).</li><li>Keep <b>${money(a.amount)}</b> as billed exposure under review. Not a saving.</li><li>Ask Northwind on its portal:</li></ol>
+     <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px"><li>Schedule the undisputed <b>${money(a.undisputed)}</b> (simulated).</li><li>Keep <b>${money(a.amount)}</b> as billed exposure under review. Not a saving.</li><li>Ask the vendor on its portal:</li></ol>
      <div style="background:#fff;border-radius:12px;padding:12px 14px;font-size:14px">“${esc(a.message)}”</div>
      ${a.status==='Submitted' ? '' : `<div class="row"><button class="btn primary" id="approve" ${approved?'disabled':''}>${approved?'Approved by '+esc(a.approved_by):'Approve inquiry'}</button>
-       <button class="btn dark" id="send" ${approved?'':'disabled'}>Send to Northwind portal</button>
+       <button class="btn dark" id="send" ${approved?'':'disabled'}>Send to the carrier portal</button>
        <a href="#" id="tryblock" class="note">Try sending without approval</a></div><div id="actmsg" class="note"></div>`}
      ${a.status==='Submitted' ? `<div class="steps">
        <div class="step"><span class="t">Approved</span><span>${esc(a.approved_by)} · ${esc(a.approved_at)}</span><span class="sp">you</span></div>
@@ -247,7 +247,7 @@ async function viewFinance() {
    <div class="box"><h2>Recurring changes, from their effective dates</h2><table class="fin">${ch||'<tr><td>None</td><td></td></tr>'}</table></div>
    <div class="box"><h2>Credits and disputes</h2><table class="fin">
     <tr><td>Disputed on the vendor portal</td><td>${money(f.disputed)}</td></tr>
-    <tr><td>Credits promised, not posted <span class="note">(call note, Sep 12)</span></td><td>${money(f.credits.promised)}</td></tr>
+    <tr><td>Credits promised, not posted <span class="note">(vendor message, not a credit memo)</span></td><td>${money(f.credits.promised)}</td></tr>
     <tr><td>Credits applied on an invoice</td><td>${money(f.credits.applied)}</td></tr></table>
     <div class="note">${esc(f.note)}</div></div>`);
   wireShell();

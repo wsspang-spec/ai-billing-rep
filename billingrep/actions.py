@@ -47,7 +47,7 @@ def submit_inquiry(invoice_id: str) -> dict:
             from billingrep import voice as voice_mod
 
             voice = voice_mod.generate_message(
-                f"Hello, this is Harbor Retail Group's billing team about account {inv['account']}. "
+                f"Hello, this is Atlas Demo Retail's billing team about account {inv['account']}. "
                 f"Invoice {inv['invoice_number']} has a new charge of {action['amount']:.0f} dollars that we can't match to our contract. "
                 f"We've opened inquiry on your portal. Could you explain it, or credit it? Thank you.",
                 f"inquiry-{invoice_id}",
