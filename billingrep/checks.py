@@ -3,7 +3,6 @@
 The same script runs locally only if Daytona is unreachable, and the result says where it ran.
 """
 
-import atexit
 import json
 import subprocess
 import sys
@@ -13,7 +12,6 @@ import time
 from billingrep import config
 
 COMPARE = r'''
-import atexit
 import json
 data = json.loads(INPUT)
 inv, prior, terms = data["invoice"], data.get("prior") or {"lines": [], "total": 0}, data["terms"]
@@ -52,11 +50,19 @@ out = {"lines": rows, "sum_of_lines": sum_lines, "billed_total": inv["total"],
 print("RESULT:" + json.dumps(out))
 '''
 
+LABELS = {"app": "ai-billing-rep", "role": "checks"}
+AUTO_STOP = 15  # idle minutes; ephemeral, so Daytona deletes it when it stops
 _sandbox = None
 _lock = threading.Lock()
 
 
-def _get_sandbox():
+def _get_sandbox(skip: str | None = None):
+    """One checks sandbox shared by every server process: reuse the labelled one, create it only if none exists.
+
+    No delete-on-exit: other processes share it, and a killed uvicorn never ran atexit anyway (that leaked
+    one sandbox per restart). It is ephemeral, so Daytona deletes it once it auto-stops after 15 idle minutes.
+    `skip` is the id of a sandbox that just failed, so a retry does not pick it again.
+    """
     global _sandbox
     with _lock:
         if _sandbox is None:
@@ -64,21 +70,41 @@ def _get_sandbox():
             import os
 
             d = Daytona(DaytonaConfig(api_key=os.environ["DAYTONA_API_KEY"], api_url="https://app.daytona.io/api"))
-            _sandbox = d.create(CreateSandboxFromSnapshotParams(
-                language="python", ephemeral=True, auto_stop_interval=120, labels={"app": "ai-billing-rep", "role": "checks"}))
-            atexit.register(_cleanup, d, _sandbox)  # one sandbox per process, deleted on exit
+            _sandbox = _find(d, skip) or d.create(CreateSandboxFromSnapshotParams(
+                language="python", ephemeral=True, auto_stop_interval=AUTO_STOP, labels=LABELS))
+            if _sandbox.auto_stop_interval != AUTO_STOP:  # one made by older code (120 min): idle out sooner
+                try:
+                    _sandbox.set_autostop_interval(AUTO_STOP)
+                except Exception:  # noqa: BLE001
+                    pass
         return _sandbox
 
 
-def _cleanup(d, sandbox) -> None:
-    try:
-        d.delete(sandbox)
-    except Exception:  # noqa: BLE001
-        pass
+def _find(d, skip: str | None = None):
+    """The newest labelled checks sandbox that is running, or a stopped one started again; None if there is none."""
+    from daytona import ListSandboxesQuery, SandboxState
+
+    found = sorted(d.list(ListSandboxesQuery(labels=LABELS)), key=lambda s: s.created_at or "", reverse=True)
+    found = [sb for sb in found if sb.id != skip]
+    for sb in found:
+        if sb.state in (SandboxState.STARTED, SandboxState.STARTING, SandboxState.CREATING):
+            sb.wait_for_sandbox_start(timeout=60)
+            return sb
+    for sb in found:
+        if sb.state == SandboxState.STOPPED:
+            try:
+                d.start(sb, timeout=60)
+                return sb
+            except Exception:  # noqa: BLE001 - it would not start: delete it so a fresh one replaces it
+                try:
+                    d.delete(sb)
+                except Exception:  # noqa: BLE001
+                    pass
+    return None
 
 
 def warm() -> None:
-    """Create the sandbox early so the first check is fast."""
+    """Find or create the sandbox early so the first check is fast."""
     if config.has("DAYTONA_API_KEY"):
         try:
             _get_sandbox()
@@ -102,10 +128,10 @@ def compare(invoice: dict, prior: dict | None, terms: dict) -> dict:
             try:
                 sb = _get_sandbox()
                 resp = sb.process.code_run(code, timeout=60)
-            except Exception:  # noqa: BLE001 - the sandbox may have auto-stopped: start a fresh one once
+            except Exception:  # noqa: BLE001 - the sandbox may have auto-stopped or broken: use another one, once
                 global _sandbox
-                _sandbox = None
-                sb = _get_sandbox()
+                failed, _sandbox = (_sandbox.id if _sandbox else None), None
+                sb = _get_sandbox(skip=failed)
                 resp = sb.process.code_run(code, timeout=60)
             result = _parse(resp.result)
             result["_meta"] = {"ran_in": "Daytona sandbox", "sandbox_id": sb.id, "seconds": round(time.time() - started, 1), "exit_code": resp.exit_code}
