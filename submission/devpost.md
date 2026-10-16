@@ -10,6 +10,8 @@ An AI teammate that investigates telecom bills and turns reviewed evidence into 
 AI Billing Rep helps billing teams organize telecom invoices, explain price changes using dated contract evidence, and escalate unresolved charges for human review. Our prototype is designed to connect invoice investigation with CFO reporting while keeping billed amounts, disputes, and realized credits distinct.
 
 ## Problem and impact
+Billing departments get invoices from many carriers all month, at different times. They are hard to track, so money leaks (charges nobody checks against the contract) and bills get missed (late fees, services shut off). Billing Rep checks every bill against the company's own dated records, holds what doesn't match, and pays the rest on time.
+
 Businesses with distributed locations must connect invoices from multiple carriers to services, contract terms, and internal approvals. Fragmented records make this work difficult and can hide unnecessary services or incorrect charges.
 
 Erie County identified approximately $900,000 in Verizon overbilling in 2017; its announcement said refunds were partly received with the remainder forthcoming. New Jersey's 2010 comptroller audit identified more than 19,000 unnecessary lines and expected annual savings exceeding $3.2 million after disconnection or suspension. These historical cases demonstrate the problem, not savings achieved by our prototype. See sources.md.

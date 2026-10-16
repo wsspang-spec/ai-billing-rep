@@ -6,6 +6,12 @@ All companies, invoices, contracts, portals and amounts are **synthetic**. Payme
 
 **Live demo (during the event, served from our laptop):** https://wichita-lanka-hunting-straight.trycloudflare.com · sign in `maria@atlas.example` / `demo-password` (synthetic). It runs on a laptop rather than in Daytona because our Daytona tier blocks outbound calls to Anchor Browser; Daytona still runs the comparison sandbox and hosts the synthetic carrier portal.
 
+## The problem
+
+Billing departments get invoices from many carriers all month long, at different times and in different formats. That makes them hard to track, so money leaks out (charges nobody checks against the contract) and bills get missed (late fees, services shut off).
+
+Billing Rep finds where money may be leaking by checking every bill against the company's own dated records, holds what doesn't match, asks the vendor after a person approves, and pays everything else on time so service never stops.
+
 ## What it does (the 2-minute version)
 
 Two October bills went up. Which one should the billing team act on?
@@ -70,6 +76,7 @@ uv run python eval/run_eval.py --trials 3
 - Payment scheduling is a simulated queue. The carrier portal is ours, synthetic, and hosted on Daytona; real carrier portals need the customer's own logins.
 - PDF reads are cached by file hash so a demo replay is fast; the cache is filled by Claude on Bedrock on the first read.
 - ElevenLabs voice message (`billingrep/voice.py`) works but is off in the demo (`BILLINGREP_VOICE=1` turns it on); it is generated, never delivered.
+- While Anchor files an inquiry, the bill page streams Anchor's live view of the cloud browser.
 - Gmail ingestion is not built; the inbox is a folder.
 
 ## Financial and action states

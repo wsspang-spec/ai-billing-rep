@@ -178,13 +178,24 @@ def inquiry(key: str, request: Request):
     _user(request)
     if key in _sending:
         return JSONResponse({"error": "Already sending this inquiry; wait for the portal confirmation."}, status_code=409)
-    _sending.add(key)
     try:
-        return actions.submit_inquiry(key)
+        action = actions.require_approval(key)
     except actions.ApprovalRequired as e:
         return JSONResponse({"blocked": True, "error": str(e)}, status_code=403)
-    finally:
-        _sending.discard(key)
+    if action["status"] == "Submitted":
+        return action
+    _sending.add(key)
+
+    def work() -> None:
+        try:
+            actions.submit_inquiry(key)
+        except Exception as e:  # noqa: BLE001
+            db.q("UPDATE action MERGE $m WHERE invoice = $k", {"k": key, "m": {"status": "Failed", "portal": {"error": str(e)[:200]}}})
+        finally:
+            _sending.discard(key)
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"status": "Sending"}
 
 
 @app.get("/api/cfo")
