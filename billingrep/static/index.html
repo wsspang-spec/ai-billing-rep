@@ -249,7 +249,7 @@ function engine(st, active) {
    ${tile('surreal','var(--surreal)','db','SurrealDB', sp.surreal?.recalls ?? 0, 'prices recalled as of the bill date', 'users · bills · contracts')}
    ${tile('daytona','var(--ink)','box','Daytona', sp.daytona?.checks ?? 0, 'checks run in a sandbox', '+ hosts the vendor portal')}
    ${tile('anchor','var(--purple)','globe','Anchor Browser', (sp.anchor?.filed ?? 0) + (sp.anchor?.pulled ?? 0), 'portal actions', `${sp.anchor?.pulled ?? 0} bill pulled · ${sp.anchor?.filed ?? 0} inquiry filed`)}
-   ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `evals: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass · <a href="#/how" style="color:var(--green)">see which ↗</a>`)}
+   ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `test suite: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass · <a href="#" data-scroll="arize" style="color:var(--green)">see below ↓</a>`)}
   </div>`;
 }
 const NEXT = {Received:'claude', Read:'surreal', Recalled:'daytona', Compared:'claude'};
@@ -263,6 +263,24 @@ function dock(url, sid, until) {
   const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; dockClosed.add(sid); if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
   el.querySelector('#ddone').onclick = () => close(true);
   dockTick = setInterval(() => { const left = Math.round((until - Date.now())/1000); if (left <= 0) return close(false); const c = document.getElementById('dcount'); if (c) c.textContent = `click inside to take over · closes in ${left}s`; }, 500);
+}
+
+function arizePanel(inv, q) {
+  const runs = inv.filter(i => i.status !== 'Checking' && i.trace_id);
+  const live = runs.map(i => `<div class="qrow" style="grid-template-columns:1fr 150px 80px 160px"><span><b>${esc(vn(i.vendor))}</b> <span class="note">· ${esc(i.invoice_number)}</span></span>
+     <span class="pill ${cls(i.status)}" style="justify-self:start">${esc(label(i.status))}</span><span class="note" style="font-family:var(--mono)">${(i.steps||[]).length} steps</span>
+     <span class="note" style="font-family:var(--mono);text-align:right"><a href="#" data-copy="${esc(i.trace_id)}" title="Copy, then paste into Arize's search">trace ${esc(i.trace_id.slice(0,8))}… ⧉</a></span></div>`).join('');
+  const sc = q.score || {}; const pct = sc.case_count ? Math.round(100 * sc.passed / sc.case_count) : 0;
+  const cases = (q.cases||[]).map(c => `<div class="qrow" style="grid-template-columns:44px 1fr 90px 150px"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}</span>
+     <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span>
+     <span class="note" style="font-family:var(--mono);text-align:right">${c.trace_id ? `<a href="#" data-copy="${esc(c.trace_id)}">trace ${esc(c.trace_id.slice(0,8))}… ⧉</a>` : '—'}</span></div>`).join('');
+  return `<div class="panel glow" id="arize"><div class="row between"><div><div class="lbl" style="color:var(--green)">Arize AX · observability</div><h2 style="margin-top:4px">Every agent run, traced</h2></div><a class="chip" href="https://app.arize.com" target="_blank">Open in Arize ↗</a></div>
+   <div class="lbl">This session · ${runs.length} run${runs.length===1?'':'s'}</div>
+   <div style="max-height:260px;overflow-y:auto">${live || '<div class="note" style="padding:8px 0">No runs yet. Pull, fetch or drop a bill and its trace shows up here. (Reset clears these.)</div>'}</div>
+   <div class="lbl" style="margin-top:10px">Test suite · ${sc.passed ?? '–'} of ${sc.case_count ?? '–'} labeled cases pass</div>
+   <div class="meter"><i style="width:${pct}%"></i></div>
+   <div class="note">Run once before the demo, on the real app, against the team’s 14 labeled cases. Reset doesn’t change it. Cases we haven’t built yet count as failures.</div>
+   <details><summary class="note" style="color:var(--blue)">See every case ▾</summary><div style="max-height:300px;overflow-y:auto;margin-top:8px">${cases}</div></details></div>`;
 }
 
 async function api(path, opts={}) {
@@ -320,7 +338,7 @@ async function upload(file) {
 
 async function viewInbox(still=false) {
   STILL = still; CUR_INV = '';
-  const [d, f, st] = await Promise.all([api('/api/invoices' + (window.SHOWALL ? '?all=1' : '')), api('/api/cfo'), api('/api/stats')]);
+  const [d, f, st, q] = await Promise.all([api('/api/invoices' + (window.SHOWALL ? '?all=1' : '')), api('/api/cfo'), api('/api/stats'), api('/api/quality').catch(() => ({cases:[]}))]);
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
@@ -368,9 +386,12 @@ async function viewInbox(still=false) {
      <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated · ${money(f.scheduled_payments_simulated)}</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
     <div><div class="panel"><h2>Contract changes and credits</h2><table class="fin">${ch}
      <tr><td>Harbor promised a credit by email, but it isn’t on any bill yet · <a href="${docHref('credit-promise-b')}" target="_blank">Email ↗</a></td><td>${money(f.credits.promised)}</td></tr>
-     <tr><td>Credits that actually showed up on a bill (real savings)</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
+     <tr><td>Credits that actually showed up on a bill (real savings)</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>
+   ${arizePanel(inv, q)}`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
+  document.querySelectorAll('[data-scroll]').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth'}); });
+  document.querySelectorAll('[data-copy]').forEach(a => a.onclick = async e => { e.preventDefault(); try { await navigator.clipboard.writeText(a.dataset.copy); a.textContent = 'copied ✓'; } catch { prompt('Trace id', a.dataset.copy); } });
   if ($('#showall')) $('#showall').onclick = e => { e.preventDefault(); window.SHOWALL = !window.SHOWALL; viewInbox(true); };
   document.querySelectorAll('[data-hf]').forEach(b => b.onclick = e => { e.preventDefault(); window.HF = b.dataset.hf; viewInbox(true); });
   document.querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async e => { e.preventDefault(); await api(`/api/invoices/${encodeURIComponent(b.dataset.dismiss)}/dismiss`,{method:'POST'}); viewInbox(true); });

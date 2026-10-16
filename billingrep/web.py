@@ -68,7 +68,7 @@ def _summary(inv: dict) -> dict:
     d = inv.get("decision") or {}
     steps = [e["step"] for e in db.q("SELECT step, at FROM event WHERE invoice = $k ORDER BY at ASC", {"k": inv["key"]})]
     return {k: inv.get(k) for k in ("key", "invoice_number", "account", "vendor", "period_start", "period_end", "total", "delta", "status", "due_date")} | {
-        "summary": d.get("summary"), "steps": steps, "why": _why(inv), "source": inv.get("source"), "dismissed": bool(inv.get("dismissed")),
+        "summary": d.get("summary"), "steps": steps, "why": _why(inv), "source": inv.get("source"), "dismissed": bool(inv.get("dismissed")), "trace_id": inv.get("trace_id"),
         "payment": db.one("SELECT amount, scheduled_on, status FROM payment WHERE invoice = $k", {"k": inv["key"]})}
 
 
