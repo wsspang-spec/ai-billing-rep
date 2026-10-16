@@ -4,6 +4,8 @@ An AI billing rep for teams that pay telecom invoices across carriers and locati
 
 All companies, invoices, contracts, portals and amounts are **synthetic**. Payments are a **simulated** queue; no real money moves.
 
+**Live demo (during the event, served from our laptop):** https://wichita-lanka-hunting-straight.trycloudflare.com · sign in `maria@atlas.example` / `demo-password` (synthetic). It runs on a laptop rather than in Daytona because our Daytona tier blocks outbound calls to Anchor Browser; Daytona still runs the comparison sandbox and hosts the synthetic carrier portal.
+
 ## What it does (the 2-minute version)
 
 Two October bills went up. Which one should the billing team act on?

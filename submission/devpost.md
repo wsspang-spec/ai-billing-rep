@@ -21,26 +21,26 @@ Scenario B: a $120 adjustment has no explanation in available records. The syste
 
 The finance view should show a $195 month-over-month increase: $75 supported recurring change and $120 unresolved exposure. A separate $600 promised credit is not realized savings.
 
-## Technical architecture — planned; update from actual implementation
-- AWS Bedrock / Claude: invoice interpretation and investigation decisions.
-- SurrealDB Agent Memory: sourced original terms and amendments with effective dates.
-- Daytona: agent execution and calculated comparisons.
-- Anchor Browser: invoice retrieval and approved inquiry submission in a synthetic portal.
-- ElevenLabs: vendor clarification audio generated from reviewed evidence.
-- Arize AX: execution traces and evaluation results.
+## Technical architecture (implemented and verified 2026-10-16)
+- AWS Bedrock / Claude (`us.anthropic.claude-opus-5-5`): reads each invoice PDF into line items (tool call with a fixed schema) and decides the status from the evidence.
+- SurrealDB (embedded): users and sessions (argon2 sign-in), invoices, documents, and contract terms with effective dates; the agent recalls the price in effect for the invoice's service period. (Plain SurrealDB, not the hosted Agent Memory product.)
+- Daytona: runs the line-by-line comparison in a sandbox and hosts the synthetic carrier portal on a public preview link.
+- Anchor Browser: after approval, signs in to the synthetic portal and files the inquiry; the app stores the case id only after the portal's API confirms it.
+- Arize AX: traces every step (OpenInference) and stores the eval pack as a dataset with one experiment per run.
+- ElevenLabs: message generation works in code but is turned off in the demo.
 
 ## Current verified deliverables in this repository
-Synthetic JSON dataset, printable HTML document generator, 14 evaluation cases with separate expected answers, an offline scorer, and submission materials. Grader self-tests are not agent accuracy results. No live sponsor integration is established by this package.
+A working FastAPI app (billingrep/), the synthetic dataset and invoice PDFs, the 14-case eval pack with an adapter that runs it against the real app (eval/run_eval.py), the synthetic carrier portal (portal/), an architecture diagram (docs/architecture.svg) and a demo script (docs/demo-walkthrough.md).
 
-## Results — fill only with measured evidence
-- Cases run: [N] of 14
-- Correctly routed: [N] / [N]
-- False escalations: [N] / [eligible cases]
-- Unapproved or duplicate actions observed: [N]
-- Median runtime across [N] runs: [seconds]
-- Tested model and version: [value]
-- Live integrations verified: [list]
-- Simulated components: [list]
+## Results (measured 2026-10-16, synthetic data)
+- Cases run against the real app: 9 of 14; scored 8 of 14 pass (5 not implemented, scored as failures). Full table: eval/results.md.
+- Routing cases (E01 explained, E02 September variation, E03 unexplained surcharge, E04 duplicate): 4 / 4 correct. E01 and E03 repeated 3 times: 3 / 3 each.
+- False escalations: 0 / 1 (E01, the supported increase, was not escalated).
+- Unapproved or duplicate actions observed: 0. Sending without approval returns HTTP 403 (E06, E13); a second click while filing returns 409; one portal case per inquiry.
+- Mean time per case (PDF read cached, decision live on Bedrock): E01 6.3 s, E03 9.1 s across 3 runs.
+- Tested model: us.anthropic.claude-opus-5-5 on AWS Bedrock (us-west-2).
+- Live integrations verified: AWS Bedrock, SurrealDB, Daytona (comparison sandbox + portal hosting), Anchor Browser (portal case DEMO-CASE-001 confirmed), Arize AX (traces + eval experiments).
+- Simulated components: payment queue, the carrier portal (ours, synthetic), the inbox (a folder; Gmail not built).
 
 ## Controls
 Describe only implemented controls: scoped approvals, duplicate checks, deterministic arithmetic, evidence links, bounded retries, and confirmation-based action status. Invoice content is untrusted data, not authority to perform actions. Production payment credentials are not included.
