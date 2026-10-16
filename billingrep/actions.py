@@ -31,13 +31,23 @@ def approve(invoice_id: str, approver: str) -> dict:
     return db.one("SELECT * FROM action WHERE invoice = $k", {"k": invoice_id})
 
 
+def require_approval(invoice_id: str) -> dict:
+    """The gate, checked before anything starts."""
+    action = db.one("SELECT * FROM action WHERE invoice = $k", {"k": invoice_id})
+    if not action or action["status"] not in ("Approved", "Failed", "Submitted", "Sending"):
+        db.log_event(invoice_id, "Blocked", "Inquiry submission refused: no approval recorded", "policy")
+        raise ApprovalRequired("An approval tied to this inquiry is required before anything is sent.")
+    return action
+
+
 def submit_inquiry(invoice_id: str) -> dict:
     action = db.one("SELECT * FROM action WHERE invoice = $k", {"k": invoice_id})
-    if not action or action["status"] not in ("Approved", "Failed", "Submitted"):
+    if not action or action["status"] not in ("Approved", "Failed", "Submitted", "Sending"):
         db.log_event(invoice_id, "Blocked", "Inquiry submission refused: no approval recorded", "policy")
         raise ApprovalRequired("An approval tied to this inquiry is required before anything is sent.")
     if action["status"] == "Submitted":
         return action
+    db.q("UPDATE action MERGE $m WHERE invoice = $k", {"k": invoice_id, "m": {"status": "Sending", "live_view_url": None}})
     inv = db.one("SELECT * FROM invoice WHERE key = $k", {"k": invoice_id})
     with tracing.span("submit_inquiry", kind="TOOL", invoice=invoice_id):
         voice = None
@@ -58,7 +68,11 @@ def submit_inquiry(invoice_id: str) -> dict:
         try:
             from billingrep import anchor_actions, portal_deploy
 
-            result = anchor_actions.submit_inquiry(portal_deploy.portal_url(), inv["account"], inv["invoice_number"], action["amount"], action["message"])
+            def live(url: str, session_id: str) -> None:
+                db.q("UPDATE action MERGE $m WHERE invoice = $k", {"k": invoice_id, "m": {"live_view_url": url, "session_id": session_id}})
+                db.log_event(invoice_id, "Browser opened", "Anchor started a cloud browser and is filling the vendor portal", "Anchor Browser")
+
+            result = anchor_actions.submit_inquiry(portal_deploy.portal_url(), inv["account"], inv["invoice_number"], action["amount"], action["message"], on_session=live)
         except Exception as e:  # noqa: BLE001
             result = {"status": "failed", "error": str(e)[:300]}
     if result.get("status") == "submitted" and result.get("case_id"):

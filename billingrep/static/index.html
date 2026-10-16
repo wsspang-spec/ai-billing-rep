@@ -141,6 +141,8 @@ main.still,main.still .item,main.still .panel,main.still .card,main.still .rstep
 .sp.on::after{content:"working";position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:10px;color:var(--c)}
 @keyframes glowp{50%{box-shadow:0 0 0 1px var(--c),0 0 46px color-mix(in srgb,var(--c) 60%,transparent)}}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.engine{grid-template-columns:repeat(2,1fr)}.pains{grid-template-columns:1fr}}
+.livebox{border-radius:12px;overflow:hidden;border:1px solid var(--purple);box-shadow:0 0 40px rgba(187,154,247,.25);background:#000;min-height:120px;display:flex;align-items:center;justify-content:center}
+.livebox iframe{width:100%;height:480px;border:0;display:block;background:#000}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -164,7 +166,7 @@ const money = n => (n<0?'-':'') + '$' + Math.abs(+n||0).toLocaleString('en-US',{
 const signed = n => (n>0?'+':'') + money(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cls = s => 's-' + String(s||'').replace(/[^A-Za-z]/g,'-');
-const LABEL = {'Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Ready to send','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
+const LABEL = {'Sending':'Sending','Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Ready to send','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
 const label = s => LABEL[s] || s;
 const NEEDS = ['Needs clarification','Needs review','Approved'];
 const vn = v => String(v||'').replace(/\s*\(synthetic\)/ig,'').replace(/\bDemo\s+/,'');
@@ -213,7 +215,8 @@ function countUp() {
 }
 const cu = (k, v, f='') => v == null ? '—' : `<span data-cu="${k}" data-v="${v}" data-f="${f}">${f==='money'?money(v):(f==='s'?(+v).toFixed(1)+' s':v)}</span>`;
 function impact(st) {
-  return `<div class="panel glow"><div class="row between"><div class="lbl">What the agent took off Maria’s plate this month</div><span class="note">Manual invoice handling: median $6 per invoice (APQC)</span></div>
+  return `<div class="panel glow"><div style="font-size:15px"><span class="lbl" style="color:var(--red)">The problem</span>&nbsp; Bills arrive all month, from every carrier, at different times. Hard to track → <b style="color:var(--amber)">money leaks out</b>, bills get missed, <b style="color:var(--red)">services get shut off</b>.</div>
+   <div class="row between"><div class="lbl">What the agent took off Maria’s plate this month</div><span class="note">Manual invoice handling: median $6 per invoice (APQC)</span></div>
    <div class="kpis">
     <div class="kpi"><div class="big" style="color:var(--blue)">${cu('secs', st.secs_per_bill, 's')}</div><div class="what">per bill, every line checked</div><div class="how">instead of reading each one yourself</div></div>
     <div class="kpi"><div class="big" style="color:var(--amber)">${cu('held', st.held, 'money')}</div><div class="what">held before paying</div><div class="how">charges your contract doesn’t explain</div></div>
@@ -361,7 +364,7 @@ function agentRun(i) {
   const total = runSecs || 1;
   const rows = steps.map((x, n) => {
     const stop = x.e.step === 'Duplicate' || x.e.step === 'Blocked';
-    const p = x.p || { icon: stop ? 'stop' : (x.e.step === 'Submitted' ? 'globe' : 'flag'), c: stop ? 'var(--red)' : (x.e.step === 'Submitted' ? 'var(--purple)' : 'var(--blue)'), label: stop ? 'Guard stopped it' : x.e.step, who: x.e.sponsor };
+    const p = x.p || { icon: stop ? 'stop' : (['Submitted','Browser opened'].includes(x.e.step) ? 'globe' : 'flag'), c: stop ? 'var(--red)' : (['Submitted','Browser opened'].includes(x.e.step) ? 'var(--purple)' : 'var(--blue)'), label: stop ? 'Guard stopped it' : x.e.step, who: x.e.sponsor };
     const w = Math.max(4, Math.round(100 * Math.max(x.dur, 0) / total));
     const extra = x.e.step === 'Decided' && looked ? `<div class="chips" style="margin-top:8px"><span class="note">Looked at:</span>${looked}</div>` : '';
     const right = x.inRun ? `<div class="rbar"><i style="width:${w}%;animation-delay:${n*.12+.1}s"></i></div><div class="rdur">${x.dur ? x.dur.toFixed(1)+' s' : '—'}</div>`
@@ -419,6 +422,12 @@ async function viewInvoice(key, still=false) {
   if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">Scheduled automatically, 3 days before it’s due (${fmtDate(p.due_on)}). Simulated: no money moves.</div></div>`;
   else if (i.status === 'Needs review') act = `<div class="panel"><h2>Held for you</h2><div class="note">No payment, nothing sent.</div></div>`;
   else if (i.status === 'Duplicate') act = `<div class="panel"><h2>No second payment</h2><div>Same as <a href="#/invoice/${encodeURIComponent(i.duplicate_of)}">${esc(i.duplicate_of)}</a>.</div></div>`;
+  const liveFrame = url => `<iframe src="${esc(url)}" title="Anchor live browser" allow="clipboard-read; clipboard-write"></iframe>`;
+  const live = a?.status === 'Sending' ? `<div class="panel glow" style="border-color:var(--purple)"><div class="row between"><div><div class="lbl" style="color:var(--purple)">Anchor Browser · live</div><h2 style="margin-top:4px">Filing the question on Harbor’s portal right now</h2></div>
+      <span class="live"><i style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></i>cloud browser</span></div>
+      <div class="livebox" id="livebox">${a.live_view_url ? liveFrame(a.live_view_url) : '<div class="note"><span class="spinner"></span>Starting a cloud browser…</div>'}</div>
+      <div class="note">It signs in, fills the inquiry and submits it. Nothing is marked filed until the portal confirms the case.${a.live_view_url ? ` · <a href="${esc(a.live_view_url)}" target="_blank">Open live view ↗</a>` : ''}</div></div>` : '';
+  if (a?.status === 'Sending') act = `<div class="panel glow"><h2>Sending…</h2><div class="note"><span class="spinner"></span>Approved by ${esc(a.approved_by)}. Anchor is filing it now; this takes about 20 seconds.</div></div>`;
   else if (a) {
     const approved = ['Approved','Submitted','Failed'].includes(a.status);
     if (a.status === 'Submitted') act = `<div class="panel glow"><h2>Done</h2><div class="steps">
@@ -439,6 +448,7 @@ async function viewInvoice(key, still=false) {
    <div class="row" style="gap:8px"><a href="#/inbox">‹ Dashboard</a><span class="note">${esc(vn(i.vendor))} · ${esc(i.account)} · ${esc(i.invoice_number)}</span></div>
    <div><span class="pill ${cls(i.status)}">${esc(label(i.status))}</span><h1 style="margin-top:10px">${st.h}</h1><p class="sub">${esc(st.s)}</p></div>
    ${agentRun(i)}
+   ${live}
    <div class="cols">
     <div>
      <div class="panel"><div class="row between"><h2>${month(i.period_start)} bill</h2><a href="${esc(i.file)}" target="_blank" class="note">View bill ↗</a></div><div class="lines">${lines}</div><div class="note">Last month: ${money(c.prior_total)}</div></div>
@@ -450,8 +460,17 @@ async function viewInvoice(key, still=false) {
   wireShell();
   const msg = t => { const m = $('#actmsg'); if (m) m.innerHTML = t; };
   if ($('#approve')) $('#approve').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/approve`,{method:'POST'}); viewInvoice(key); };
-  if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Anchor is opening the vendor’s portal and filing the question (about 20 seconds)…');
-     try { await api(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST'}); } catch (x) { msg('<span class="err">'+esc(x.message)+'</span>'); $('#send').disabled = false; return; } viewInvoice(key); };
+  if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Starting Anchor…');
+     try { await api(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST'}); } catch (x) { msg('<span class="err">'+esc(x.message)+'</span>'); $('#send').disabled = false; return; }
+     viewInvoice(key); };
+  if (a?.status === 'Sending') { const watch = async () => {
+       if (location.hash !== '#/invoice/' + encodeURIComponent(key) && location.hash !== '#/invoice/' + key) return;
+       const j = await api('/api/invoices/' + encodeURIComponent(key)).catch(() => null); if (!j) return;
+       const box = $('#livebox');
+       if (j.action?.live_view_url && box && !box.querySelector('iframe')) box.innerHTML = liveFrame(j.action.live_view_url);
+       if (j.action?.status !== 'Sending') return viewInvoice(key);
+       timer = setTimeout(watch, 1200); };
+     timer = setTimeout(watch, 1200); }
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
      msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
@@ -473,7 +492,13 @@ async function viewHow() {
   const trials = Object.entries(q.trials?.by_case || {}).map(([k,v]) => `${k} ${v.passed}/${v.runs}`).join(' · ');
   const qrows = (q.cases||[]).map((c,n) => `<div class="qrow" style="animation-delay:${.2+n*.06}s"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}</span>
      <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span><span class="note" style="text-align:right;font-family:var(--mono)">${c.secs?c.secs+' s':''}</span></div>`).join('');
-  $('#app').innerHTML = shell('how', `<div class="row between"><div><h1>How a bill moves</h1><p class="sub">One agent. Each sponsor does one real job.</p></div><button class="btn" id="replay">Replay</button></div>
+  $('#app').innerHTML = shell('how', `<div class="panel glow"><div class="lbl" style="color:var(--red)">The problem</div>
+    <div class="pains" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+     <div class="pain"><b>Scattered bills</b><span class="note">all month, every carrier, every format</span></div>
+     <div class="pain"><b style="color:var(--amber)">Revenue leaks</b><span class="note">charges nobody checks against the contract</span></div>
+     <div class="pain"><b style="color:var(--red)">Missed bills</b><span class="note">late fees, services shut off</span></div></div>
+    <div style="font-size:15px">Billing Rep checks every bill against your own dated records, holds what doesn’t match, and pays the rest on time.</div></div>
+   <div class="row between"><div><h1>How a bill moves</h1><p class="sub">One agent. Each sponsor does one real job.</p></div><button class="btn" id="replay">Replay</button></div>
    <div class="panel glow how" id="how" style="padding:8px">${svg}</div>
    <div class="panel"><div class="lines how" style="background:transparent;padding:0">${rows.map((r,n) => `<div class="ln" style="font-weight:400;opacity:0;animation:rise .4s ease ${.3+n*.3}s forwards"><span class="n">${r[0]}</span><span><b>${r[1]}</b> ${r[2]}</span><span style="color:var(--blue);font-weight:600;white-space:nowrap">${r[3]}</span></div>`).join('')}</div></div>
    <div class="panel glow"><div class="row between"><div><div class="lbl">Arize AX · experiment</div><h2 style="margin-top:4px">Is the agent right? ${sc.passed ?? '–'} of ${sc.case_count ?? '–'} labeled cases pass</h2></div><a class="chip" href="https://app.arize.com" target="_blank">Open in Arize ↗</a></div>

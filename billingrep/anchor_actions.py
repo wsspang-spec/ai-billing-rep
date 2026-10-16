@@ -29,7 +29,8 @@ def _existing_case(portal_url: str, invoice_number: str) -> dict | None:
     return cases[0] if cases else None
 
 
-def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: float, message: str) -> dict:
+def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: float, message: str, on_session=None) -> dict:
+    """on_session(live_view_url, session_id) is called as soon as the cloud browser exists, so the UI can stream it."""
     portal_url = portal_url.rstrip("/")
     try:
         found = _existing_case(portal_url, invoice_number)
@@ -54,6 +55,11 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
         if data is None or not data.id or not data.cdp_url:
             return {"status": "failed", "error": "Anchor returned no session"}
         session_id, live_view_url = data.id, data.live_view_url
+        if on_session:
+            try:
+                on_session(live_view_url, session_id)
+            except Exception:
+                pass
 
         with sync_playwright() as pw:
             browser = pw.chromium.connect_over_cdp(data.cdp_url, timeout=60_000)
@@ -63,18 +69,24 @@ def submit_inquiry(portal_url: str, account: str, invoice_number: str, amount: f
                 # Daytona shows browsers a "Preview - Warning" interstitial unless this header is sent.
                 page.set_extra_http_headers({"X-Daytona-Skip-Preview-Warning": "true"})
                 page.set_default_timeout(30_000)
+                # Paced like a person so the live view is watchable on stage.
+                page.wait_for_timeout(1500)
                 page.goto(f"{portal_url}/", wait_until="domcontentloaded")
-                page.fill("#username", "demo")
-                page.fill("#password", "demo")
+                page.locator("#username").press_sequentially("demo", delay=60)
+                page.locator("#password").press_sequentially("demo", delay=60)
+                page.wait_for_timeout(400)
                 page.click("#login")
                 page.wait_for_url(re.compile(r"/invoices"))
-                page.goto(f"{portal_url}/inquiry", wait_until="domcontentloaded")
+                page.wait_for_timeout(1200)
+                page.goto(f"{portal_url}/inquiry?invoice_number={invoice_number}&account={account}", wait_until="domcontentloaded")
                 page.fill("#account", account)
                 page.fill("#invoice_number", invoice_number)
-                page.fill("#amount", f"{float(amount):.2f}")
-                page.fill("#message", message)
+                page.locator("#amount").press_sequentially(f"{float(amount):.2f}", delay=50)
+                page.fill("#message", message)  # long text: paste it (typing over CDP is too slow)
+                page.wait_for_timeout(600)
                 page.click("#submit")
                 case_id = page.locator("#case-id").inner_text(timeout=30_000).strip()
+                page.wait_for_timeout(2500)  # leave the confirmation on screen for a moment
             finally:
                 browser.close()
 
