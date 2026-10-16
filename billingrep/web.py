@@ -180,7 +180,12 @@ async def anchor_release(request: Request) -> dict:
     from billingrep import anchor_actions
 
     sid = (await request.json()).get("session_id", "")
-    return {"released": anchor_actions.release(sid)}
+    released = anchor_actions.release(sid)
+    if _pull.get("session_id") == sid:  # don't offer the closed browser again
+        _pull.update({"hold_until": None})
+    for a in db.q("SELECT invoice, portal FROM action WHERE portal.session_id = $s", {"s": sid}):
+        db.q("UPDATE action SET portal.hold_until = NONE WHERE invoice = $k", {"k": a["invoice"]})
+    return {"released": released}
 
 
 @app.post("/api/upload")

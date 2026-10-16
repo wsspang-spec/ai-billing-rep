@@ -253,13 +253,13 @@ function engine(st, active) {
 }
 const NEXT = {Received:'claude', Read:'surreal', Recalled:'daytona', Compared:'claude'};
 
-let dockSid = null, dockTick = null;
+let dockSid = null, dockTick = null; const dockClosed = new Set();
 function dock(url, sid, until) {
-  if (!url || !sid || !until || until < Date.now() || dockSid === sid) return;
+  if (!url || !sid || !until || until < Date.now() || dockSid === sid || dockClosed.has(sid)) return;
   dockSid = sid; let el = document.getElementById('dock');
   if (!el) { el = document.createElement('div'); el.id = 'dock'; document.body.appendChild(el); }
   el.innerHTML = `<div class="dh"><span class="live"><i style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></i></span><b>Anchor Browser · you have control</b><span class="sp2 note" id="dcount"></span><a href="${esc(url)}" target="_blank">Open ↗</a><button class="btn small" id="ddone">Done</button></div><iframe src="${esc(url)}" title="Anchor cloud browser"></iframe>`;
-  const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
+  const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; dockClosed.add(sid); if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
   el.querySelector('#ddone').onclick = () => close(true);
   dockTick = setInterval(() => { const left = Math.round((until - Date.now())/1000); if (left <= 0) return close(false); const c = document.getElementById('dcount'); if (c) c.textContent = `click inside to take over · closes in ${left}s`; }, 500);
 }
