@@ -123,6 +123,24 @@ details>summary{cursor:pointer;list-style:none}details>summary::-webkit-details-
 .tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;text-align:center}
 .tag.pass{color:var(--green);background:rgba(158,206,106,.12)}.tag.fail{color:var(--red);background:rgba(247,118,142,.12)}.tag.skip{color:var(--muted);background:var(--panel2)}
 .meter{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden}.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--blue));transform-origin:left;animation:fill 1.2s ease forwards}
+
+main.still,main.still .item,main.still .panel,main.still .card,main.still .rstep,main.still .guard,main.still .kpi,main.still .sp{animation:none!important;opacity:1}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{padding:14px 16px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);animation:rise .5s ease both}
+.kpi .big{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .what{font-size:13px;font-weight:600;margin-top:2px}.kpi .how{font-size:12px;color:var(--muted)}
+.pains{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pain{display:flex;gap:10px;align-items:center;font-size:13px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+.pain s{color:var(--muted);text-decoration-color:var(--red)}.pain b{color:var(--ink);font-weight:600}.pain .arr{color:var(--blue)}
+.engine{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.sp{--c:var(--blue);position:relative;padding:14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--c) 11%,transparent),transparent 70%);animation:rise .5s ease both;overflow:hidden}
+.sp .hd{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}.sp .hd svg{width:16px;height:16px;color:var(--c)}
+.sp .big{font-size:30px;font-weight:700;color:var(--c);font-variant-numeric:tabular-nums;margin-top:6px;text-shadow:0 0 18px color-mix(in srgb,var(--c) 45%,transparent)}
+.sp .what{font-size:12px;color:var(--ink)}.sp .how{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px}
+.sp.on{border-color:var(--c);box-shadow:0 0 0 1px var(--c),0 0 30px color-mix(in srgb,var(--c) 40%,transparent);animation:glowp 1.1s ease-in-out infinite!important}
+.sp.on::after{content:"working";position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:10px;color:var(--c)}
+@keyframes glowp{50%{box-shadow:0 0 0 1px var(--c),0 0 46px color-mix(in srgb,var(--c) 60%,transparent)}}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.engine{grid-template-columns:repeat(2,1fr)}.pains{grid-template-columns:1fr}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -158,7 +176,7 @@ const docName = id => { id = String(id||'').replace(/^term-/,''); const m = id.m
   const l = id.match(/-L(\d+)$/); return l ? 'Bill line ' + l[1] : 'Bill ' + id; };
 const docHref = (id, q) => `/doc/${encodeURIComponent(id)}${q ? '?q=' + encodeURIComponent(q) : ''}`;
 const vcolor = v => /harbor/i.test(v) ? 'var(--amber)' : 'var(--blue)';
-let me = null, timer = null, localErrors = [];
+let me = null, timer = null, localErrors = [], STILL = false;
 
 const ICON = {
   claude: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 6.2L19 4.6l-3.6 5.4L22 12l-6.6 1.9 3.6 5.5-5.4-3.6L12 22l-1.6-6.2L5 19.4l3.6-5.5L2 12l6.6-2L5 4.6l5.4 3.6z"/></svg>',
@@ -183,6 +201,45 @@ function pipe(steps, live) {
     `<div class="pdot ${done.has(p.step)?'done':(live && i===first?'live':'')}" style="--c:${p.c}" title="${p.label}">${ICON[p.icon]}</div>`).join('') + '</div>';
 }
 
+
+const prevNum = {};
+function countUp() {
+  document.querySelectorAll('[data-cu]').forEach(el => {
+    const k = el.dataset.cu, to = +el.dataset.v, fmt = el.dataset.f, from = prevNum[k] ?? 0; prevNum[k] = to;
+    const show = v => el.textContent = fmt === 'money' ? money(v) : (fmt === 's' ? v.toFixed(1) + ' s' : Math.round(v));
+    if (from === to || isNaN(to)) return show(to);
+    const t0 = performance.now(); const step = t => { const k2 = Math.min(1, (t - t0) / 700); show(from + (to - from) * (1 - Math.pow(1 - k2, 3))); if (k2 < 1) requestAnimationFrame(step); }; requestAnimationFrame(step);
+  });
+}
+const cu = (k, v, f='') => v == null ? '—' : `<span data-cu="${k}" data-v="${v}" data-f="${f}">${f==='money'?money(v):(f==='s'?(+v).toFixed(1)+' s':v)}</span>`;
+function impact(st) {
+  return `<div class="panel glow"><div class="row between"><div class="lbl">What the agent took off Maria’s plate this month</div><span class="note">Manual invoice handling: median $6 per invoice (APQC)</span></div>
+   <div class="kpis">
+    <div class="kpi"><div class="big" style="color:var(--blue)">${cu('secs', st.secs_per_bill, 's')}</div><div class="what">per bill, every line checked</div><div class="how">instead of reading each one yourself</div></div>
+    <div class="kpi"><div class="big" style="color:var(--amber)">${cu('held', st.held, 'money')}</div><div class="what">held before paying</div><div class="how">charges your contract doesn’t explain</div></div>
+    <div class="kpi"><div class="big" style="color:var(--green)">${cu('ontime', st.paid_on_time)}<span style="font-size:18px;color:var(--muted)">/${st.payments}</span></div><div class="what">paid on time</div><div class="how">scheduled 3 days before due</div></div>
+    <div class="kpi"><div class="big" style="color:var(--purple)">${st.dispute_days_left == null ? '—' : cu('days', st.dispute_days_left) + '<span style="font-size:18px;color:var(--muted)"> days</span>'}</div><div class="what">left to dispute</div><div class="how">caught inside the 30-day window</div></div>
+   </div>
+   <details><summary class="note" style="color:var(--blue)">Which AP pains this fixes ▾</summary><div class="pains" style="margin-top:10px">
+    <div class="pain"><s>Reading every line of every bill</s><span class="arr">→</span><b>Claude reads and checks each one</b></div>
+    <div class="pain"><s>A price rise that looks like an error</s><span class="arr">→</span><b>Checked against the contract in effect that month</b></div>
+    <div class="pain"><s>Chasing vendors on their portals</s><span class="arr">→</span><b>Filed for you, after you approve</b></div>
+    <div class="pain"><s>Paying twice, or late</s><span class="arr">→</span><b>Duplicates stopped, payments scheduled early</b></div>
+   </div></details></div>`;
+}
+function engine(st, active) {
+  const sp = st.sponsors || {};
+  const tile = (key, c, icon, name, v, what, how) => `<div class="sp ${active.has(key)?'on':''}" style="--c:${c}"><div class="hd">${ICON[icon]}${name}</div><div class="big">${cu('sp-'+key, v)}</div><div class="what">${what}</div><div class="how">${how}</div></div>`;
+  return `<div class="engine">
+   ${tile('claude','var(--claude)','claude','Claude · AWS Bedrock', sp.claude?.reads ?? 0, 'bills read', `${sp.claude?.decisions ?? 0} decisions made`)}
+   ${tile('surreal','var(--surreal)','db','SurrealDB', sp.surreal?.recalls ?? 0, 'prices recalled as of the bill date', 'users · bills · contracts')}
+   ${tile('daytona','var(--ink)','box','Daytona', sp.daytona?.checks ?? 0, 'checks run in a sandbox', '+ hosts the vendor portal')}
+   ${tile('anchor','var(--purple)','globe','Anchor Browser', sp.anchor?.filed ?? 0, 'inquiries filed on the portal', 'only after you approve')}
+   ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `evals: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass`)}
+  </div>`;
+}
+const NEXT = {Received:'claude', Read:'surreal', Recalled:'daytona', Compared:'claude'};
+
 async function api(path, opts={}) {
   const r = await fetch(path, {credentials:'same-origin', ...opts, headers:{'content-type':'application/json', ...(opts.headers||{})}});
   if (r.status === 401 && path !== '/api/login') { me = null; location.hash = '#/login'; throw new Error('signed out'); }
@@ -191,10 +248,10 @@ async function api(path, opts={}) {
   return body;
 }
 
-function shell(active, inner) {
+function shell(active, inner, still=false) {
   return `<div class="top"><div class="row" style="gap:18px"><div class="brand"><div class="logo">BR</div>Billing Rep</div>
   <nav class="nav"><a href="#/inbox" class="${active==='inbox'?'on':''}">Dashboard</a><a href="#/how" class="${active==='how'?'on':''}">How it works</a></nav></div>
-  <div class="right"><span class="live"><i></i>live · ${now()}</span>${me?.show_reset===false?'':'<button class="btn small" id="reset">Reset demo</button>'}<span>${esc(me?.name)}</span><a href="#" id="out">Sign out</a></div></div><main>${inner}</main>`;
+  <div class="right"><span class="live"><i></i>live · ${now()}</span>${me?.show_reset===false?'':'<button class="btn small" id="reset">Reset demo</button>'}<span>${esc(me?.name)}</span><a href="#" id="out">Sign out</a></div></div><main class="${still||STILL?'still':''}">${inner}</main>`;
 }
 function wireShell() {
   $('#out').onclick = async e => { e.preventDefault(); await api('/api/logout',{method:'POST'}); me=null; location.hash='#/login'; };
@@ -228,8 +285,9 @@ async function upload(file) {
   viewInbox();
 }
 
-async function viewInbox() {
-  const [d, f] = await Promise.all([api('/api/invoices'), api('/api/cfo')]);
+async function viewInbox(still=false) {
+  STILL = still;
+  const [d, f, st] = await Promise.all([api('/api/invoices'), api('/api/cfo'), api('/api/stats')]);
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
@@ -250,7 +308,10 @@ async function viewInbox() {
      .map(n => `<div class="item"><div class="av" style="background:var(--panel2);color:var(--muted)">··</div><div class="who"><b>${esc(n)}</b><div>Claude is reading the PDF…</div>${pipe(['Received'], true)}</div></div>`).join('');
   const pays = (f.payments||[]).map(p => `<tr><td><span class="lbl">${fmtDate(p.scheduled_on)}</span> &nbsp;${esc(vn(p.vendor))} · ${esc(p.invoice)}${p.part?' <span class="note">(undisputed part)</span>':''}</td><td>${money(p.amount)}</td></tr>`).join('');
   const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)} from ${fmtDate(c.effective)} · <a href="${docHref(c.source)}" target="_blank">${docName(c.source)} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
+  const working = new Set(); inv.filter(i => i.status === 'Checking').forEach(i => { const last = (i.steps||[]).slice(-1)[0]; if (NEXT[last]) working.add(NEXT[last]); });
+  if (reading) working.add('claude'); if (busy) working.add('arize');
   $('#app').innerHTML = shell('inbox', `
+   ${impact(st)}
    <div class="panel glow"><div class="row between"><div><div class="lbl">Atlas Retail · accounts payable</div>
      <h1 style="margin-top:6px">${allClear?'All caught up.':(needs.length?`${inv.length} bills checked. <span style="color:var(--amber)">${needs.length} need${needs.length>1?'':'s'} you.</span>`:(inv.length?`${inv.length} bill${inv.length>1?'s':''} checked.`:'October bills'))}</h1></div>
      <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Add invoice<input type="file" id="file" accept="application/pdf,.pdf" hidden></label>
@@ -260,18 +321,12 @@ async function viewInbox() {
     <div class="row between" style="margin-top:4px"><span class="lbl" style="color:var(--amber)">Needs you · ${needs.length}</span></div>
     <div class="list">${rows}${reading}${!active.length && !reading ? `<div class="item"><div class="who"><b>${inv.length ? 'Nothing needs you' : 'No bills yet'}</b><div>${inv.length ? 'Every bill below was checked and handled.' : 'Fetch from the inbox, or drop a PDF.'}</div></div></div>`:''}</div></div>
    ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">OK to pay, waiting on vendor, or skipped</span></summary><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
-   <div class="cards">
-    <div class="card amber"><div class="lbl">Needs you</div><div class="v">${needs.length}</div></div>
-    <div class="card green"><div class="lbl">OK to pay</div><div class="v">${explained.length}</div></div>
-    <div class="card blue"><div class="lbl">Scheduled to pay</div><div class="v">${money(f.scheduled_payments_simulated)}</div></div>
-    <div class="card amber"><div class="lbl">Open questions</div><div class="v">${money(f.billed_exposure_under_review)}</div></div>
-    <div class="card"><div class="lbl">Saved so far</div><div class="v">${money(f.realized_savings)}</div></div>
-   </div>
+   ${engine(st, working)}
    <div class="cols"><div>
-     <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated queue</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
+     <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated · ${money(f.scheduled_payments_simulated)}</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
     <div><div class="panel"><h2>Price changes and credits</h2><table class="fin">${ch}
      <tr><td>Credit promised by Harbor, not on any bill · <a href="${docHref('credit-promise-b')}" target="_blank">Message ↗</a></td><td>${money(f.credits.promised)}</td></tr>
-     <tr><td>Credits actually applied</td><td>${money(f.credits.applied)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
+     <tr><td>Credits actually applied · saved so far</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
   $('#file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
@@ -280,7 +335,8 @@ async function viewInbox() {
   drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
-  if (busy) timer = setTimeout(viewInbox, 1200);
+  countUp();
+  if (busy) timer = setTimeout(() => viewInbox(true), 1200);
 }
 
 function story(i) {
@@ -295,19 +351,28 @@ function story(i) {
 }
 
 function agentRun(i) {
-  const evs = i.events || [];
+  const evs = i.events || [], d = i.decision || {};
   const t = e => new Date(e.at).getTime();
-  const steps = evs.map((e, n) => ({ e, p: PIPE.find(p => p.step === e.step), dur: n ? (t(e) - t(evs[n-1])) / 1000 : 0 }));
-  const total = steps.reduce((s, x) => s + Math.max(x.dur, 0), 0) || 1;
+  const PIPESTEPS = new Set(PIPE.map(p => p.step).concat(['Duplicate']));
+  const looked = [...new Map((d.citations||[]).map(x => [String(x.source).replace(/^term-/,''), x])).values()]
+     .map(x => `<a class="chip" href="${docHref(x.source, x.quote)}" target="_blank" title="${esc(x.quote)}">${esc(docName(x.source))} ↗</a>`).join('');
+  const steps = evs.map((e, n) => ({ e, p: PIPE.find(p => p.step === e.step), inRun: PIPESTEPS.has(e.step), dur: n && PIPESTEPS.has(e.step) ? (t(e) - t(evs[n-1])) / 1000 : 0 }));
+  const runSecs = steps.filter(x => x.inRun).reduce((s, x) => s + Math.max(x.dur, 0), 0);
+  const total = runSecs || 1;
   const rows = steps.map((x, n) => {
     const stop = x.e.step === 'Duplicate' || x.e.step === 'Blocked';
     const p = x.p || { icon: stop ? 'stop' : (x.e.step === 'Submitted' ? 'globe' : 'flag'), c: stop ? 'var(--red)' : (x.e.step === 'Submitted' ? 'var(--purple)' : 'var(--blue)'), label: stop ? 'Guard stopped it' : x.e.step, who: x.e.sponsor };
     const w = Math.max(4, Math.round(100 * Math.max(x.dur, 0) / total));
-    return `<div class="rstep ${stop?'stop':''}" style="animation-delay:${n*.22}s;--c:${p.c}"><div class="rico">${ICON[p.icon]}</div>
-      <div class="rname">${esc(p.label)}<small>${esc(x.e.sponsor || p.who)}</small></div><div class="rdet">${esc(x.e.detail)}</div>
-      <div><div class="rbar"><i style="width:${w}%;animation-delay:${n*.22+.15}s"></i></div><div class="rdur">${x.dur ? x.dur.toFixed(1)+' s' : '—'}</div></div></div>`; }).join('');
-  return `<div class="panel glow"><div class="row between"><div><div class="lbl">Agent run · ${esc((i.trace_id||'').slice(0,8))}</div><h2 style="margin-top:4px">What the agent did, step by step</h2></div>
-    <a class="chip" href="https://app.arize.com" target="_blank">Trace in Arize ↗</a></div><div class="run">${rows}</div></div>`;
+    const extra = x.e.step === 'Decided' && looked ? `<div class="chips" style="margin-top:8px"><span class="note">Looked at:</span>${looked}</div>` : '';
+    const right = x.inRun ? `<div class="rbar"><i style="width:${w}%;animation-delay:${n*.12+.1}s"></i></div><div class="rdur">${x.dur ? x.dur.toFixed(1)+' s' : '—'}</div>`
+                          : `<div class="rdur">${new Date(x.e.at).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false})}</div>`;
+    return `<div class="rstep ${stop?'stop':''}" style="animation-delay:${n*.12}s;--c:${p.c}"><div class="rico">${ICON[p.icon]}</div>
+      <div class="rname">${esc(p.label)}<small>${esc(x.e.sponsor || p.who)}</small></div><div class="rdet">${esc(x.e.detail)}${extra}</div><div>${right}</div></div>`; }).join('');
+  return `<details class="panel glow run-box"><summary><div class="row between"><div class="row" style="gap:12px"><div class="rico" style="--c:var(--claude)">${ICON.claude}</div>
+      <div><div class="lbl">Agent run · ${steps.filter(x=>x.inRun).length} steps · ${runSecs.toFixed(1)} s</div><div style="font-weight:600;margin-top:2px">Claude decided: <span class="pill ${cls(i.status)}">${esc(label(i.status))}</span> <span class="note">· click to see every step</span></div></div></div>
+      <a class="chip" href="https://app.arize.com" target="_blank" onclick="event.stopPropagation()">Trace in Arize ↗</a></div>
+      ${looked ? `<div class="chips" style="margin-top:10px"><span class="note">Checked:</span>${looked}</div>` : ''}</summary>
+    <div class="run" style="margin-top:10px">${rows}</div><div class="note">Claude’s reasoning: ${esc(d.summary||'')}</div></details>`;
 }
 
 function guardrails(i) {
@@ -340,7 +405,8 @@ function priceTimeline(i) {
   return `<div class="panel"><h2>${ts.length > 1 ? 'Price over time' : 'What you agreed to pay'}</h2><div class="tline" style="margin-bottom:22px">${segs}</div></div>`;
 }
 
-async function viewInvoice(key) {
+async function viewInvoice(key, still=false) {
+  STILL = still;
   const i = await api('/api/invoices/' + encodeURIComponent(key));
   const d = i.decision || {}, c = i.checks || {}, a = i.action, p = i.payment, st = story(i);
   const verdict = Object.fromEntries((c.lines||[]).map(l => [l.line_no, l]));
@@ -389,10 +455,11 @@ async function viewInvoice(key) {
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
      msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
-  if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key), 1200);
+  if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key, true), 1200);
 }
 
 async function viewHow() {
+  STILL = false;
   const [svg, q] = await Promise.all([fetch('/static/architecture.svg').then(r => r.text()), api('/api/quality').catch(() => ({cases:[]}))]);
   const rows = [
    ['1','Bring in.','Fetch from the AP inbox, or drop a PDF.','FastAPI app'],

@@ -214,6 +214,47 @@ def sample_next(request: Request):
     return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 
+@app.get("/api/stats")
+def stats(request: Request) -> dict:
+    """What the agent did this month, per sponsor, and what it saved the rep. All counted from stored events."""
+    _user(request)
+    import datetime as dt
+    import json
+
+    def ts(x: str) -> dt.datetime:
+        return dt.datetime.fromisoformat(str(x).replace("Z", "+00:00"))
+
+    ev = db.q("SELECT step, sponsor, invoice, at FROM event")
+    run = db.q("SELECT * FROM invoice WHERE run = true")
+    n = lambda step: sum(1 for e in ev if e["step"] == step)  # noqa: E731
+    per = {}
+    for e in ev:
+        per.setdefault(e["invoice"], []).append(ts(e["at"]))
+    secs = [(max(v) - min(v)).total_seconds() for k, v in per.items() if len(v) > 2]
+    review = ("Needs review", "Needs clarification", "Approved", "Awaiting vendor response")
+    held = sum((i.get("checks") or {}).get("unsupported_amount", 0) for i in run if i["status"] in review)
+    pays = db.q("SELECT * FROM payment")
+    today = dt.date.fromisoformat(config.TODAY)
+    windows = [(dt.date.fromisoformat(i["invoice_date"]) + dt.timedelta(days=30) - today).days for i in run if i["status"] in review[1:]]
+    ev_file = config.ROOT / "eval" / "results.json"
+    score = json.loads(ev_file.read_text()).get("score", {}) if ev_file.exists() else {}
+    return {
+        "bills": len([i for i in run if i["status"] != "Checking"]),
+        "secs_per_bill": round(sum(secs) / len(secs), 1) if secs else None,
+        "held": round(held, 2),
+        "paid_on_time": sum(1 for p in pays if p["scheduled_on"] < p["due_on"]), "payments": len(pays),
+        "dispute_days_left": min(windows) if windows else None,
+        "duplicates_stopped": n("Duplicate"), "blocked": n("Blocked"),
+        "sponsors": {
+            "claude": {"reads": n("Read"), "decisions": n("Decided")},
+            "surreal": {"recalls": n("Recalled"), "users": 1},
+            "daytona": {"checks": sum(1 for e in ev if e["step"] == "Compared" and "Daytona" in (e.get("sponsor") or "")), "portal": 1},
+            "anchor": {"filed": n("Submitted")},
+            "arize": {"traces": len(per) , "eval_passed": score.get("passed"), "eval_total": score.get("case_count")},
+        },
+    }
+
+
 @app.get("/api/quality")
 def quality(request: Request) -> dict:
     """The latest eval run (the team's labeled cases, scored against the real app and logged to Arize)."""
