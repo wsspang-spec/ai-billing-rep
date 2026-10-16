@@ -20,6 +20,11 @@ def _prior(account: str, period_start: str, exclude_key: str) -> dict | None:
         "SELECT * FROM invoice WHERE account = $a AND period_end < $p AND key != $k AND status != 'Duplicate' ORDER BY period_end DESC LIMIT 1",
         {"a": account, "p": period_start, "k": exclude_key},
     )
+    if not rows:  # a revised bill for a period we already have: compare with that one
+        rows = db.q(
+            "SELECT * FROM invoice WHERE account = $a AND period_start <= $p AND key != $k AND status != 'Duplicate' ORDER BY period_end DESC LIMIT 1",
+            {"a": account, "p": period_start, "k": exclude_key},
+        )
     return rows[0] if rows else None
 
 

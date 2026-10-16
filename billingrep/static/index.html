@@ -44,7 +44,7 @@ h2{margin:0;font-size:15px;font-weight:600}
 .amt{text-align:right;font-variant-numeric:tabular-nums}.amt div:first-child{font-size:15px}.amt div:last-child{font-size:12px;color:var(--muted);font-family:var(--mono)}
 .pill{font-size:12px;padding:4px 10px;border-radius:999px;font-weight:600;white-space:nowrap;border:1px solid transparent}
 .s-Explained{color:var(--green);background:rgba(158,206,106,.1);border-color:rgba(158,206,106,.3)}
-.s-Needs-clarification,.s-Approved{color:var(--amber);background:rgba(224,175,104,.1);border-color:rgba(224,175,104,.35)}
+.s-Needs-clarification,.s-Approved,.s-Held{color:var(--amber);background:rgba(224,175,104,.1);border-color:rgba(224,175,104,.35)}
 .s-Needs-review{color:var(--red);background:rgba(247,118,142,.1);border-color:rgba(247,118,142,.35)}
 .s-Awaiting-vendor-response{color:var(--blue);background:rgba(122,162,247,.1);border-color:rgba(122,162,247,.35)}
 .s-Duplicate,.s-Checking{color:var(--muted);background:var(--panel2);border-color:var(--line)}
@@ -176,9 +176,10 @@ const money = n => (n<0?'-':'') + '$' + Math.abs(+n||0).toLocaleString('en-US',{
 const signed = n => (n>0?'+':'') + money(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cls = s => 's-' + String(s||'').replace(/[^A-Za-z]/g,'-');
-const LABEL = {'Sending':'Sending','Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Ready to send','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
+const LABEL = {'Sending':'Sending','Explained':'OK to pay','Needs clarification':'Ask vendor','Needs review':'Check price','Approved':'Approved · send it','Held':'On hold','Awaiting vendor response':'Waiting on vendor','Duplicate':'Duplicate, skipped','Checking':'Checking'};
 const label = s => LABEL[s] || s;
-const NEEDS = ['Needs clarification','Needs review','Approved'];
+const NEEDS = ['Needs clarification','Needs review','Approved','Held'];
+const SRC = {'carrier portal':'via Harbor portal (Anchor)', 'inbox':'via inbox', 'upload':'uploaded'};
 const vn = v => String(v||'').replace(/\s*\(synthetic\)/ig,'').replace(/\bDemo\s+/,'');
 const fmtDate = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
 const month = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'long'}) : '';
@@ -248,20 +249,38 @@ function engine(st, active) {
    ${tile('surreal','var(--surreal)','db','SurrealDB', sp.surreal?.recalls ?? 0, 'prices recalled as of the bill date', 'users · bills · contracts')}
    ${tile('daytona','var(--ink)','box','Daytona', sp.daytona?.checks ?? 0, 'checks run in a sandbox', '+ hosts the vendor portal')}
    ${tile('anchor','var(--purple)','globe','Anchor Browser', (sp.anchor?.filed ?? 0) + (sp.anchor?.pulled ?? 0), 'portal actions', `${sp.anchor?.pulled ?? 0} bill pulled · ${sp.anchor?.filed ?? 0} inquiry filed`)}
-   ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `evals: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass`)}
+   ${tile('arize','var(--green)','flag','Arize AX', sp.arize?.traces ?? 0, 'agent runs traced', `test suite: ${sp.arize?.eval_passed ?? '–'}/${sp.arize?.eval_total ?? '–'} pass · <a href="#" data-scroll="arize" style="color:var(--green)">see below ↓</a>`)}
   </div>`;
 }
 const NEXT = {Received:'claude', Read:'surreal', Recalled:'daytona', Compared:'claude'};
 
-let dockSid = null, dockTick = null;
+let dockSid = null, dockTick = null; const dockClosed = new Set();
 function dock(url, sid, until) {
-  if (!url || !sid || !until || until < Date.now() || dockSid === sid) return;
+  if (!url || !sid || !until || until < Date.now() || dockSid === sid || dockClosed.has(sid)) return;
   dockSid = sid; let el = document.getElementById('dock');
   if (!el) { el = document.createElement('div'); el.id = 'dock'; document.body.appendChild(el); }
   el.innerHTML = `<div class="dh"><span class="live"><i style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></i></span><b>Anchor Browser · you have control</b><span class="sp2 note" id="dcount"></span><a href="${esc(url)}" target="_blank">Open ↗</a><button class="btn small" id="ddone">Done</button></div><iframe src="${esc(url)}" title="Anchor cloud browser"></iframe>`;
-  const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
+  const close = async (release) => { clearInterval(dockTick); el.remove(); dockSid = null; dockClosed.add(sid); if (release) await api('/api/anchor/release',{method:'POST',body:JSON.stringify({session_id:sid})}).catch(()=>{}); };
   el.querySelector('#ddone').onclick = () => close(true);
   dockTick = setInterval(() => { const left = Math.round((until - Date.now())/1000); if (left <= 0) return close(false); const c = document.getElementById('dcount'); if (c) c.textContent = `click inside to take over · closes in ${left}s`; }, 500);
+}
+
+function arizePanel(inv, q) {
+  const runs = inv.filter(i => i.status !== 'Checking' && i.trace_id);
+  const live = runs.map(i => `<div class="qrow" style="grid-template-columns:1fr 150px 80px 160px"><span><b>${esc(vn(i.vendor))}</b> <span class="note">· ${esc(i.invoice_number)}</span></span>
+     <span class="pill ${cls(i.status)}" style="justify-self:start">${esc(label(i.status))}</span><span class="note" style="font-family:var(--mono)">${(i.steps||[]).length} steps</span>
+     <span class="note" style="font-family:var(--mono);text-align:right"><a href="#" data-copy="${esc(i.trace_id)}" title="Copy, then paste into Arize's search">trace ${esc(i.trace_id.slice(0,8))}… ⧉</a></span></div>`).join('');
+  const sc = q.score || {}; const pct = sc.case_count ? Math.round(100 * sc.passed / sc.case_count) : 0;
+  const cases = (q.cases||[]).map(c => `<div class="qrow" style="grid-template-columns:44px 1fr 90px 150px"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}</span>
+     <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span>
+     <span class="note" style="font-family:var(--mono);text-align:right">${c.trace_id ? `<a href="#" data-copy="${esc(c.trace_id)}">trace ${esc(c.trace_id.slice(0,8))}… ⧉</a>` : '—'}</span></div>`).join('');
+  return `<div class="panel glow" id="arize"><div class="row between"><div><div class="lbl" style="color:var(--green)">Arize AX · observability</div><h2 style="margin-top:4px">Every agent run, traced</h2></div><a class="chip" href="https://app.arize.com" target="_blank">Open in Arize ↗</a></div>
+   <div class="lbl">This session · ${runs.length} run${runs.length===1?'':'s'}</div>
+   <div style="max-height:260px;overflow-y:auto">${live || '<div class="note" style="padding:8px 0">No runs yet. Pull, fetch or drop a bill and its trace shows up here. (Reset clears these.)</div>'}</div>
+   <div class="lbl" style="margin-top:10px">Test suite · ${sc.passed ?? '–'} of ${sc.case_count ?? '–'} labeled cases pass</div>
+   <div class="meter"><i style="width:${pct}%"></i></div>
+   <div class="note">Run once before the demo, on the real app, against the team’s 14 labeled cases. Reset doesn’t change it. Cases we haven’t built yet count as failures.</div>
+   <details><summary class="note" style="color:var(--blue)">See every case ▾</summary><div style="max-height:300px;overflow-y:auto;margin-top:8px">${cases}</div></details></div>`;
 }
 
 async function api(path, opts={}) {
@@ -319,7 +338,7 @@ async function upload(file) {
 
 async function viewInbox(still=false) {
   STILL = still; CUR_INV = '';
-  const [d, f, st] = await Promise.all([api('/api/invoices'), api('/api/cfo'), api('/api/stats')]);
+  const [d, f, st, q] = await Promise.all([api('/api/invoices' + (window.SHOWALL ? '?all=1' : '')), api('/api/cfo'), api('/api/stats'), api('/api/quality').catch(() => ({cases:[]}))]);
   const inv = d.invoices;
   const needs = inv.filter(i => NEEDS.includes(i.status));
   const explained = inv.filter(i => i.status === 'Explained');
@@ -328,19 +347,24 @@ async function viewInbox(still=false) {
   const errors = [...localErrors, ...d.errors];
   const allClear = inv.length && !needs.length && !busy && !errors.length;
   const row = (i,n) => `<div class="item" style="animation-delay:${n*.05}s"><div class="av" style="background:${vcolor(i.vendor)}">${esc(vn(i.vendor).slice(0,2).toUpperCase())}</div>
-     <div class="who"><b>${esc(vn(i.vendor))} <span class="note" style="font-weight:400">· ${esc(i.invoice_number)}</span></b><div>${i.status==='Checking' ? 'Checking…' : esc(i.why || '')}</div>${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
+     <div class="who"><b>${esc(vn(i.vendor))} <span class="note" style="font-weight:400">· ${esc(i.invoice_number)}</span></b><div>${i.status==='Checking' ? 'Checking…' : esc(i.why || '')}${SRC[i.source] ? ` <span class="note" style="font-family:var(--mono);font-size:11px">· ${SRC[i.source]}</span>` : ''}${i.dismissed ? ' <span class="note">· dismissed</span>' : ''}</div>${i.status==='Checking'?pipe(i.steps||[], true):''}</div>
      <div class="amt"><div>${money(i.total)}</div><div>${i.delta==null?'':signed(i.delta)+' vs last'}</div></div>
      <span class="pill ${cls(i.status)}">${i.status==='Checking'?'<span class="spinner"></span>':''}${esc(label(i.status))}</span>
      <a class="btn ${NEEDS.includes(i.status)?'white':''}" style="display:inline-flex;align-items:center" href="#/invoice/${encodeURIComponent(i.key)}">${NEEDS.includes(i.status)?'Review':'Open'}</a></div>`;
   const active = inv.filter(i => NEEDS.includes(i.status) || i.status === 'Checking');
   const handled = inv.filter(i => !NEEDS.includes(i.status) && i.status !== 'Checking');
   const rows = active.map(row).join('');
-  const handledRows = handled.map(row).join('');
+  const HF = window.HF || 'all';
+  const hfMatch = i => HF === 'all' || (HF === 'ok' && i.status === 'Explained') || (HF === 'wait' && i.status === 'Awaiting vendor response') || (HF === 'skip' && i.status === 'Duplicate');
+  const handledRows = handled.filter(hfMatch).map((i,n) => row(i,n).replace(/<\/div>$/, i.status === 'Duplicate' && !i.dismissed ? `<button class="btn small" data-dismiss="${esc(i.key)}" title="Hide it; it stays in the record">Dismiss</button></div>` : '</div>')).join('');
+  const hcount = k => handled.filter(i => k === 'all' || (k === 'ok' && i.status === 'Explained') || (k === 'wait' && i.status === 'Awaiting vendor response') || (k === 'skip' && i.status === 'Duplicate')).length;
+  const chipsHF = [['all','All'],['ok','OK to pay'],['wait','Waiting on vendor'],['skip','Skipped']].filter(([k]) => k === 'all' || hcount(k))
+     .map(([k,t]) => `<button class="chip" data-hf="${k}" style="${HF===k?'border-color:var(--blue);color:var(--blue)':''}">${t} · ${hcount(k)}</button>`).join('');
   const checkingNums = inv.filter(i => i.status === 'Checking').map(i => i.invoice_number);
   const reading = d.processing.filter(n => !checkingNums.some(x => n.startsWith(x)))
      .map(n => `<div class="item"><div class="av" style="background:var(--panel2);color:var(--muted)">··</div><div class="who"><b>${esc(n)}</b><div>Claude is reading the PDF…</div>${pipe(['Received'], true)}</div></div>`).join('');
   const pays = (f.payments||[]).map(p => `<tr><td><span class="lbl">${fmtDate(p.scheduled_on)}</span> &nbsp;${esc(vn(p.vendor))} · ${esc(p.invoice)}${p.part?' <span class="note">(undisputed part)</span>':''}</td><td>${money(p.amount)}</td></tr>`).join('');
-  const ch = f.recurring_changes.map(c => `<tr><td>${esc(c.service)} ${money(c.from)} → ${money(c.to)} from ${fmtDate(c.effective)} · <a href="${docHref(c.source)}" target="_blank">${esc(docName(c.source))} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
+  const ch = f.recurring_changes.map(c => `<tr><td>Northstar raised ${esc(c.service)} from ${money(c.from)} to ${money(c.to)} a month, starting ${fmtDate(c.effective)}. It’s in a signed contract change: <a href="${docHref(c.source)}" target="_blank">${esc(docName(c.source))} ↗</a></td><td>${signed(c.monthly_change)}/mo</td></tr>`).join('');
   const working = new Set(); inv.filter(i => i.status === 'Checking').forEach(i => { const last = (i.steps||[]).slice(-1)[0]; if (NEXT[last]) working.add(NEXT[last]); });
   if (reading) working.add('claude'); if (busy || pulling) working.add('arize'); if (pulling) working.add('anchor');
   $('#app').innerHTML = shell('inbox', `
@@ -356,15 +380,21 @@ async function viewInbox(still=false) {
     ${errors.map(e => `<div class="alert"><span>${esc(e)}</span><button aria-label="Dismiss">×</button></div>`).join('')}
     <div class="row between" style="margin-top:4px"><span class="lbl" style="color:var(--amber)">Needs you · ${needs.length}</span></div>
     <div class="list">${rows}${reading}${!active.length && !reading ? `<div class="item"><div class="who"><b>${inv.length ? 'Nothing needs you' : 'No bills yet'}</b><div>${inv.length ? 'Every bill below was checked and handled.' : 'Fetch from the inbox, or drop a PDF.'}</div></div></div>`:''}</div></div>
-   ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">OK to pay, waiting on vendor, or skipped</span></summary><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
+   ${handled.length ? `<div class="panel"><details ${handled.length <= 4 ? 'open' : ''}><summary class="row between"><span class="lbl" style="color:var(--green)">Handled this month · ${handled.length}</span><span class="note">${d.dismissed ? `<a href="#" id="showall">${window.SHOWALL ? 'Hide' : 'Show'} ${d.dismissed} dismissed</a> · ` : ''}OK to pay, waiting on vendor, or skipped</span></summary><div class="chips" style="margin-top:10px">${chipsHF}</div><div class="list" style="margin-top:8px">${handledRows}</div></details></div>` : ''}
    ${engine(st, working)}
    <div class="cols"><div>
      <div class="panel"><div class="row between"><h2>Payments scheduled</h2><span class="lbl">simulated · ${money(f.scheduled_payments_simulated)}</span></div><table class="fin">${pays||'<tr><td class="note">None yet</td><td></td></tr>'}</table></div></div>
-    <div><div class="panel"><h2>Price changes and credits</h2><table class="fin">${ch}
-     <tr><td>Credit promised by Harbor, not on any bill · <a href="${docHref('credit-promise-b')}" target="_blank">Message ↗</a></td><td>${money(f.credits.promised)}</td></tr>
-     <tr><td>Credits actually applied · saved so far</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>`);
+    <div><div class="panel"><h2>Contract changes and credits</h2><table class="fin">${ch}
+     <tr><td>Harbor promised a credit by email, but it isn’t on any bill yet · <a href="${docHref('credit-promise-b')}" target="_blank">Email ↗</a></td><td>${money(f.credits.promised)}</td></tr>
+     <tr><td>Credits that actually showed up on a bill (real savings)</td><td>${money(f.realized_savings)}</td></tr></table><div class="note">A promise isn’t a saving until it shows up on a bill.</div></div></div></div>
+   ${arizePanel(inv, q)}`);
   wireShell();
   $('#fetch').onclick = async () => { $('#fetch').disabled = true; await api('/api/fetch',{method:'POST'}); viewInbox(); };
+  document.querySelectorAll('[data-scroll]').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth'}); });
+  document.querySelectorAll('[data-copy]').forEach(a => a.onclick = async e => { e.preventDefault(); try { await navigator.clipboard.writeText(a.dataset.copy); a.textContent = 'copied ✓'; } catch { prompt('Trace id', a.dataset.copy); } });
+  if ($('#showall')) $('#showall').onclick = e => { e.preventDefault(); window.SHOWALL = !window.SHOWALL; viewInbox(true); };
+  document.querySelectorAll('[data-hf]').forEach(b => b.onclick = e => { e.preventDefault(); window.HF = b.dataset.hf; viewInbox(true); });
+  document.querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async e => { e.preventDefault(); await api(`/api/invoices/${encodeURIComponent(b.dataset.dismiss)}/dismiss`,{method:'POST'}); viewInbox(true); });
   $('#pull').onclick = async () => { $('#pull').disabled = true; await api('/api/portal/pull',{method:'POST'}); viewInbox(); };
   $('#file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
   document.querySelectorAll('.alert button').forEach(b => b.onclick = async () => { localErrors = []; await fetch('/api/errors/clear',{method:'POST',credentials:'same-origin'}); b.parentElement.remove(); });
@@ -388,9 +418,12 @@ async function viewInbox(still=false) {
 function story(i) {
   const c = i.checks || {}, bad = (c.lines||[]).filter(l => l.verdict !== 'matches_term');
   const t = (i.terms_used||[])[0];
+  if (i.status === 'Explained' && i.resolution) return { h: 'Resolved by you.', s: i.resolution + '.' };
+  if (i.status === 'Held') return { h: 'Payment on hold.', s: 'You stopped the automatic payment. Release it when you’re ready.' };
   if (i.status === 'Explained') return { h: i.delta ? `${signed(i.delta)}, and it was expected.` : 'Same as last month.', s: t && i.delta ? `The new price started ${fmtDate(t.valid_from)} (${docName(t.source)}). This bill matches it.` : 'Every line matches what you agreed to pay.' };
   if (i.status === 'Needs review') { const l = bad[0]; return { h: 'Billed a price that wasn’t in effect yet.', s: l ? `${money(l.amount)} billed for ${month(i.period_start)}, but the price then was ${money(l.expected)}.` : '' }; }
   if (['Needs clarification','Approved','Awaiting vendor response'].includes(i.status)) { const l = bad[0];
+    if (l && l.verdict === 'differs_from_term') return { h: i.status==='Awaiting vendor response' ? 'Asked the vendor to fix the price.' : 'Asking the vendor to fix the price.', s: `Billed ${money(l.amount)} for ${month(i.period_start)}; the price then was ${money(l.expected)}.` };
     return { h: i.status==='Awaiting vendor response' ? 'Asked the vendor about the new charge.' : `${money(c.unsupported_amount)} that nothing explains.`, s: l ? `“${l.description}” isn’t in your contract.` : '' }; }
   if (i.status === 'Duplicate') return { h: 'You already have this bill.', s: 'Same invoice number. The agent stopped before any payment.' };
   return { h: 'Checking…', s: '' };
@@ -415,7 +448,7 @@ function agentRun(i) {
     return `<div class="rstep ${stop?'stop':''}" style="animation-delay:${n*.12}s;--c:${p.c}"><div class="rico">${ICON[p.icon]}</div>
       <div class="rname">${esc(p.label)}<small>${esc(x.e.sponsor || p.who)}</small></div><div class="rdet">${esc(x.e.detail)}${extra}</div><div>${right}</div></div>`; }).join('');
   return `<details class="panel glow run-box"><summary><div class="row between"><div class="row" style="gap:12px"><div class="rico" style="--c:var(--claude)">${ICON.claude}</div>
-      <div><div class="lbl">Agent run · ${steps.filter(x=>x.inRun).length} steps · ${runSecs.toFixed(1)} s</div><div style="font-weight:600;margin-top:2px">Claude decided: <span class="pill ${cls(i.status)}">${esc(label(i.status))}</span> <span class="note">· click to see every step</span></div></div></div>
+      <div><div class="lbl">Agent run · ${steps.filter(x=>x.inRun).length} steps · ${runSecs.toFixed(1)} s</div><div style="font-weight:600;margin-top:2px">Claude decided: <span class="pill ${cls(d.model_status || d.status || i.status)}">${esc(label(d.model_status || d.status || i.status))}</span> <span class="note">· click to see every step</span></div></div></div>
       <a class="chip" href="https://app.arize.com" target="_blank" onclick="event.stopPropagation()">Trace in Arize ↗</a></div>
       ${looked ? `<div class="chips" style="margin-top:10px"><span class="note">Checked:</span>${looked}</div>` : ''}</summary>
     <div class="run" style="margin-top:10px">${rows}</div><div class="note">Claude’s reasoning: ${esc(d.summary||'')}</div></details>`;
@@ -431,7 +464,12 @@ function guardrails(i) {
     g.push(['pass','Price as of the bill date', `Recalled for ${fmtDate(i.period_start)}, not today’s price`]);
     g.push([(d.citations||[]).length ? 'pass' : 'stop', 'Every claim has a source', `${(d.citations||[]).length} cited documents`]);
   }
-  (d.guards||[]).forEach(x => g.push(['fix','Model corrected by code', x]));
+  const plain = x => /dropped citations/.test(x) ? 'Claude cited a source that doesn’t exist; the code removed it before you saw it.'
+    : /added citations/.test(x) ? 'Claude gave no sources; the code attached the contract terms it checked.'
+    : /overridden to Needs review/.test(x) ? 'Claude said OK, but a line didn’t match that month’s price; the code held the bill.'
+    : /no term at all/.test(x) ? 'The open charge has no contract term at all; the code routed it to Ask vendor.'
+    : /unknown status/.test(x) ? 'Claude gave an unexpected answer; the code held the bill for you.' : x;
+  (d.guards||[]).forEach(x => g.push(['fix','Code corrected the model', plain(x)]));
   if (a) g.push([a.status === 'Proposed' ? 'stop' : 'pass', 'Human approval before sending', a.status === 'Proposed' ? 'Waiting for you: sending is blocked' : `Approved by ${a.approved_by}`]);
   if (a?.status === 'Submitted') g.push(['pass','No “sent” without proof', `Portal confirmed ${a.case_id}`]);
   if (i.status === 'Explained') g.push(['pass','Payment only after checks', 'Scheduled (simulated)']);
@@ -462,8 +500,13 @@ async function viewInvoice(key, still=false) {
   const evidence = [...new Map((d.citations||[]).map(x => [String(x.source).replace(/^term-/,''), x])).values()]
      .map(x => `<a class="chip" href="${docHref(x.source, x.quote)}" target="_blank" title="${esc(x.quote)}">${esc(docName(x.source))} ↗</a>`).join('');
   let act = '';
-  if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">Scheduled automatically, 3 days before it’s due (${fmtDate(p.due_on)}). Simulated: no money moves.</div></div>`;
-  else if (i.status === 'Needs review') act = `<div class="panel"><h2>Held for you</h2><div class="note">No payment, nothing sent.</div></div>`;
+  if (i.status === 'Explained' && p) act = `<div class="panel"><div class="lbl">Payment</div><div style="font-size:22px;font-weight:600">${money(p.amount)} on ${fmtDate(p.scheduled_on)}</div><div class="note">${i.resolution ? esc(i.resolution) + '. ' : 'Scheduled automatically, 3 days before it’s due (' + fmtDate(p.due_on) + '). '}Simulated: no money moves.</div><div class="row"><button class="btn small" id="hold">Hold payment</button></div></div>`;
+  else if (i.status === 'Needs review') { const agreed = (i.total || 0) - (c.unsupported_amount || 0);
+    act = `<div class="panel glow"><h2>What do you want to do?</h2><div class="note">Billed ${money(i.total)}; the contract price for ${month(i.period_start)} was ${money(agreed)}. Nothing is paid or sent until you choose.</div>
+     <div class="row"><button class="btn primary" data-resolve="pay_agreed">Pay the agreed ${money(agreed)}</button>
+     <button class="btn white" data-resolve="ask_vendor">Ask vendor to fix it</button>
+     <button class="btn" data-resolve="accept">Accept ${money(i.total)} anyway</button></div><div id="actmsg" class="note"></div></div>`; }
+  else if (i.status === 'Held') act = `<div class="panel glow"><h2>Payment on hold</h2><div class="note">${p ? money(p.amount) + ' was due to go out ' + fmtDate(p.scheduled_on) + '.' : ''} Nothing goes out while it’s on hold.</div><div class="row"><button class="btn primary" id="release">Release payment</button></div></div>`;
   else if (i.status === 'Duplicate') act = `<div class="panel"><h2>No second payment</h2><div>Same as <a href="#/invoice/${encodeURIComponent(i.duplicate_of)}">${esc(i.duplicate_of)}</a>.</div></div>`;
   const liveFrame = url => `<iframe src="${esc(url)}" title="Anchor live browser" allow="clipboard-read; clipboard-write"></iframe>`;
   const live = a?.status === 'Sending' ? `<div class="panel glow" style="border-color:var(--purple)"><div class="row between"><div><div class="lbl" style="color:var(--purple)">Anchor Browser · live</div><h2 style="margin-top:4px">Filing the question on Harbor’s portal right now</h2></div>
@@ -484,7 +527,7 @@ async function viewInvoice(key, still=false) {
        <div class="step"><span class="ic" style="color:var(--purple)">${ICON.globe}</span><span class="t">Ask</span><span>On the vendor’s portal. <details><summary style="font-size:13px;color:var(--blue)">Read the message</summary><div class="note" style="margin-top:6px">${esc(a.message)}</div></details></span></div></div>
        <div class="row"><button class="btn primary" id="approve" ${approved?'disabled':''}>${approved?'✓ Approved':'Approve'}</button>
        <button class="btn white" id="send" ${approved?'':'disabled'}>Send to vendor</button>
-       ${approved?'':'<a href="#" id="tryblock" class="note">Try sending without approval</a>'}</div>
+       ${approved?'':'<a href="#" id="tryblock" class="note" title="Calls the server’s send step directly, skipping the button, to prove the server refuses">Test the guardrail: send without approval</a>'}</div>
        ${a.status==='Failed'?`<div class="err">Not sent: ${esc(a.portal?.error||'no confirmation from the portal')}. Try again.</div>`:''}<div id="actmsg" class="note"></div></div>`;
   }
   $('#app').innerHTML = shell('inbox', `
@@ -502,6 +545,9 @@ async function viewInvoice(key, still=false) {
    ${guardrails(i)}`);
   wireShell();
   const msg = t => { const m = $('#actmsg'); if (m) m.innerHTML = t; };
+  document.querySelectorAll('[data-resolve]').forEach(b => b.onclick = async () => { b.disabled = true; await api(`/api/invoices/${encodeURIComponent(key)}/resolve`,{method:'POST',body:JSON.stringify({choice:b.dataset.resolve})}); viewInvoice(key); });
+  if ($('#hold')) $('#hold').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/hold`,{method:'POST'}); viewInvoice(key); };
+  if ($('#release')) $('#release').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/release`,{method:'POST'}); viewInvoice(key); };
   if ($('#approve')) $('#approve').onclick = async () => { await api(`/api/invoices/${encodeURIComponent(key)}/approve`,{method:'POST'}); viewInvoice(key); };
   if ($('#send')) $('#send').onclick = async () => { $('#send').disabled = true; msg('<span class="spinner"></span>Starting Anchor…');
      try { await api(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST'}); } catch (x) { msg('<span class="err">'+esc(x.message)+'</span>'); $('#send').disabled = false; return; }
@@ -516,7 +562,7 @@ async function viewInvoice(key, still=false) {
      timer = setTimeout(watch, 1200); }
   if ($('#tryblock')) $('#tryblock').onclick = async e => { e.preventDefault();
      const r = await fetch(`/api/invoices/${encodeURIComponent(key)}/inquiry`,{method:'POST',credentials:'same-origin'}); const b = await r.json().catch(()=>({}));
-     msg(r.status===403 ? `<span class="err">■ Blocked by the guardrail: ${esc(b.error)}</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
+     msg(r.status===403 ? `<span class="err">■ Refused by the server (403): no approval on record for this inquiry. The AI can suggest; only a person can send.</span><br><span class="note">Checked in code against SurrealDB · logged as a step · traced in Arize.</span>` : 'Allowed: it was already approved.'); if (r.ok) viewInvoice(key); };
   if (a?.status === 'Submitted' && a.portal) dock(a.portal.live_view_url, a.portal.session_id, a.portal.hold_until);
   if (i.status === 'Checking') timer = setTimeout(() => viewInvoice(key, true), 1200);
 }
@@ -525,17 +571,19 @@ async function viewHow() {
   STILL = false;
   const [svg, q, st] = await Promise.all([fetch('/static/architecture.svg').then(r => r.text()), api('/api/quality').catch(() => ({cases:[]})), api('/api/stats').catch(() => ({}))]);
   const rows = [
-   ['1','Bring in.','Fetch from the AP inbox, or drop a PDF.','FastAPI app'],
-   ['2','Read.','Claude reads the PDF into line items.','Claude on AWS Bedrock'],
-   ['3','Remember.','Contracts and prices that know when they take effect.','SurrealDB'],
-   ['4','Check.','The comparison math runs in a sandbox.','Daytona'],
-   ['5','Decide.','Explained → pay. Unexplained → ask you.','Claude on AWS Bedrock'],
-   ['6','Act.','After you approve: file the question on the carrier portal.','Anchor Browser'],
-   ['∞','Watch.','Every step traced; labeled cases scored.','Arize AX']];
+   ['1','Collect.','From the vendor’s portal, the AP inbox, or an upload.','Anchor Browser'],
+   ['2','Read.','Claude turns any PDF layout into line items.','Claude on AWS Bedrock'],
+   ['3','Recall.','The price that was in effect on the bill’s dates.','SurrealDB'],
+   ['4','Re-add.','The math is redone in a sandbox, not trusted from the model.','Daytona'],
+   ['5','Decide.','OK to pay, check price, or ask the vendor, with sources.','Claude on AWS Bedrock'],
+   ['6','Act, after you approve.','The question is filed on the vendor’s portal.','Anchor Browser'],
+   ['∞','Watch.','Every step traced; the agent scored on labeled cases.','Arize AX']];
   const sc = q.score || {}; const pct = sc.case_count ? Math.round(100 * sc.passed / sc.case_count) : 0;
   const trials = Object.entries(q.trials?.by_case || {}).map(([k,v]) => `${k} ${v.passed}/${v.runs}`).join(' · ');
-  const qrows = (q.cases||[]).map((c,n) => `<div class="qrow" style="animation-delay:${.2+n*.06}s"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}</span>
-     <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span><span class="note" style="text-align:right;font-family:var(--mono)">${c.secs?c.secs+' s':''}</span></div>`).join('');
+  const qrows = (q.cases||[]).map((c,n) => `<div class="qrow" style="animation-delay:${.05+n*.03}s;grid-template-columns:44px 1fr 90px 70px 150px"><span class="lbl" style="color:var(--ink)">${esc(c.id)}</span><span>${esc(c.task)}${c.not_run && c.reason ? `<br><span class="note">${esc(c.reason)}</span>` : ''}</span>
+     <span class="tag ${c.not_run?'skip':(c.passed?'pass':'fail')}">${c.not_run?'NOT BUILT':(c.passed?'PASS':'FAIL')}</span><span class="note" style="text-align:right;font-family:var(--mono)">${c.secs?c.secs+' s':''}</span>
+     <span class="note" style="font-family:var(--mono);text-align:right">${c.trace_id ? `<a href="#" data-copy="${esc(c.trace_id)}" title="Copy the trace id, then paste it in Arize's search">trace ${esc(c.trace_id.slice(0,8))}… ⧉</a>` : '—'}</span></div>`).join('');
+  const trialRows = Object.entries(q.trials?.by_case || {}).map(([k,v]) => `<div class="qrow" style="grid-template-columns:44px 1fr 90px 70px"><span class="lbl" style="color:var(--ink)">${esc(k)}</span><span>Repeated ${v.runs} times from a clean start</span><span class="tag ${v.passed===v.runs?'pass':'fail'}">${v.passed}/${v.runs}</span><span class="note" style="text-align:right;font-family:var(--mono)">avg ${v.mean_s} s</span></div>`).join('');
   $('#app').innerHTML = shell('how', `<div class="panel glow"><div class="lbl" style="color:var(--red)">The problem</div>
     <div class="pains" style="grid-template-columns:repeat(3,minmax(0,1fr))">
      <div class="pain"><b>Scattered bills</b><span class="note">all month, every carrier, every format</span></div>
@@ -548,14 +596,17 @@ async function viewHow() {
    <div class="panel"><div class="lines how" style="background:transparent;padding:0">${rows.map((r,n) => `<div class="ln" style="font-weight:400;opacity:0;animation:rise .4s ease ${.3+n*.3}s forwards"><span class="n">${r[0]}</span><span><b>${r[1]}</b> ${r[2]}</span><span style="color:var(--blue);font-weight:600;white-space:nowrap">${r[3]}</span></div>`).join('')}</div></div>
    <div class="panel glow"><div class="row between"><div><div class="lbl">Arize AX · experiment</div><h2 style="margin-top:4px">Is the agent right? ${sc.passed ?? '–'} of ${sc.case_count ?? '–'} labeled cases pass</h2></div><a class="chip" href="https://app.arize.com" target="_blank">Open in Arize ↗</a></div>
     <div class="meter"><i style="width:${pct}%"></i></div><div class="note">Run on the real app (${esc(q.model||'')}) · repeat runs: ${esc(trials)} · each case is a traced run in Arize; cases we haven't built yet count as failures.</div>
-    <div>${qrows}</div></div>`);
+    <details><summary class="note" style="color:var(--blue);margin-top:4px">See all ${(q.cases||[]).length} cases, repeat runs and trace ids ▾</summary>
+     <div class="note" style="margin:10px 0 4px">${esc(q.arize?.detail || '')}${q.run_at ? ' · run ' + esc(q.run_at.replace('T',' ')) : ''}. Click a trace id to copy it, then paste it into Arize’s search.</div>
+     <div class="lbl" style="margin-top:12px">Repeat runs</div><div>${trialRows}</div>
+     <div class="lbl" style="margin-top:14px">Every case</div><div style="max-height:340px;overflow-y:auto;padding-right:6px;border-top:1px solid var(--line)">${qrows}</div></details></div>`);
   wireShell();
   const s = $('#how svg');
   const ag = [...s.querySelectorAll('g')].find(g => g.getAttribute('marker-end'));
-  const order = [0, 6, 1, 2, 3, 5, 7, 4];
+  const order = null;  // the diagram is drawn left to right: animate arrows in document order
   if (ag) { ag.classList.add('arrows');
-    [...ag.querySelectorAll('path')].forEach((p,n) => { const t = order.indexOf(n) * 0.45 + 0.2; p.style.animationDelay = t + 's';
-      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('r','4.5'); dot.setAttribute('fill', n===6 ? '#BB9AF7' : '#7AA2F7'); dot.setAttribute('opacity','0');
+    [...ag.querySelectorAll('path')].forEach((p,n) => { const t = n * 0.35 + 0.2; p.style.animationDelay = t + 's';
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('r','4.5'); dot.setAttribute('fill', n===10 ? '#9ECE6A' : (n===9 ? '#BB9AF7' : '#7AA2F7')); dot.setAttribute('opacity','0');
       dot.setAttribute('style','filter:drop-shadow(0 0 6px #7AA2F7)');
       const m = document.createElementNS('http://www.w3.org/2000/svg','animateMotion'); m.setAttribute('dur','1.6s'); m.setAttribute('repeatCount','indefinite'); m.setAttribute('begin', (t + 0.9)+'s'); m.setAttribute('path', p.getAttribute('d'));
       const o = document.createElementNS('http://www.w3.org/2000/svg','set'); o.setAttribute('attributeName','opacity'); o.setAttribute('to','1'); o.setAttribute('begin', (t + 0.9)+'s');
@@ -563,6 +614,7 @@ async function viewHow() {
   const badges = [...s.querySelectorAll('g')].find(g => g.getAttribute('font-weight') === '700');
   if (badges) { badges.classList.add('badges'); [...badges.children].forEach((b,n) => b.style.animationDelay = (0.4 + Math.floor(n/2)*0.4) + 's'); }
   countUp();
+  document.querySelectorAll('[data-copy]').forEach(a => a.onclick = async e => { e.preventDefault(); try { await navigator.clipboard.writeText(a.dataset.copy); a.textContent = 'copied ✓'; } catch { prompt('Trace id', a.dataset.copy); } });
   $('#replay').onclick = viewHow;
 }
 
@@ -577,6 +629,11 @@ async function route() {
     return await viewInbox();
   } catch (e) { if (e.message !== 'signed out') $('#app').innerHTML = `<main><p class="err">${esc(e.message)}</p><a href="#/inbox">Back</a></main>`; }
 }
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+  const h = a.getAttribute('href') || '';
+  if (/^\/(doc|files|portal)\//.test(h)) { e.preventDefault(); window.open(h, '_blank', 'noopener'); }
+});
 window.onhashchange = route;
 route();
 </script>
